@@ -25,7 +25,7 @@ export default function Home() {
     model: 'gpt-4o',
     displayName: 'OpenAI GPT-4o'
   });
-  const [analysisType, setAnalysisType] = useState<'summary' | 'assignments'>('summary');
+  const [analysisType, setAnalysisType] = useState<'summary' | 'assignments' | 'agent_evaluation'>('summary');
   const [result, setResult] = useState<string>('');
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
@@ -47,7 +47,7 @@ export default function Home() {
     }
   };
 
-  const handleAnalysisTypeChange = (type: 'summary' | 'assignments') => {
+  const handleAnalysisTypeChange = (type: 'summary' | 'assignments' | 'agent_evaluation') => {
     setAnalysisType(type);
   };
 
@@ -75,25 +75,43 @@ export default function Home() {
       formData.append('modelProvider', selectedModel.provider);
       formData.append('modelName', selectedModel.model);
 
-      const response = await fetch('/api/analyze-cv', {
+      // Choose the appropriate endpoint based on analysis type
+      const endpoint = analysisType === 'agent_evaluation' 
+        ? '/api/agent-cv-evaluation' 
+        : '/api/analyze-cv';
+
+      const response = await fetch(endpoint, {
         method: 'POST',
         body: formData,
       });
 
       if (!response.ok) {
         const errorData = await response.json();
-        throw new Error(errorData.error || 'Failed to analyze CV');
+        throw new Error(errorData.error || `Failed to analyze CV: ${response.status} ${response.statusText}`);
       }
 
       const data = await response.json();
-      setResult(data.result);
+      
+      // Different endpoints return different structures
+      if (analysisType === 'agent_evaluation') {
+        // Check if the result is structured or not (Anthropic vs OpenAI)
+        if (data.isStructured === false) {
+          // For Anthropic, we get plain text
+          setResult(data.result);
+        } else {
+          // For OpenAI, we get structured data
+          setResult(data.result);
+        }
+      } else {
+        setResult(data.result);
+      }
     } catch (err) {
       if (err instanceof Error) {
         setError(err.message);
       } else {
         setError('An error occurred during analysis. Please try again.');
       }
-      console.error(err);
+      console.error('Analysis error:', err);
     } finally {
       setIsLoading(false);
     }
@@ -140,7 +158,7 @@ export default function Home() {
               
               <div className="space-y-2">
                 <h3 className="text-md font-medium">Analysis Type</h3>
-                <div className="flex space-x-4">
+                <div className="flex flex-col space-y-2">
                   <label className="flex items-center space-x-2">
                     <input
                       type="radio"
@@ -161,6 +179,22 @@ export default function Home() {
                     />
                     <span>Key Assignments</span>
                   </label>
+                  <label className="flex items-center space-x-2">
+                    <input
+                      type="radio"
+                      name="analysisType"
+                      checked={analysisType === 'agent_evaluation'}
+                      onChange={() => handleAnalysisTypeChange('agent_evaluation')}
+                      className="h-4 w-4"
+                    />
+                    <span>Agent-based CV Evaluation</span>
+                  </label>
+                  
+                  {analysisType === 'agent_evaluation' && (
+                    <div className="mt-2 px-3 py-2 bg-blue-50 text-blue-800 text-xs rounded">
+                      <p><strong>Note:</strong> Agent-based evaluation works best with OpenAI models (GPT-4 recommended). This feature uses multiple AI agents to provide detailed ratings across different CV criteria.</p>
+                    </div>
+                  )}
                 </div>
               </div>
 

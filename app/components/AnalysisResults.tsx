@@ -2,8 +2,25 @@
 
 import { useState } from 'react';
 
+// Define the structure of agent evaluation results
+interface CriterionRating {
+  criterion_id: string;
+  criterion_name: string;
+  rating: number;
+  reasoning: string;
+  suggestions: string[];
+}
+
+interface AgentEvaluationResult {
+  overall_rating: number;
+  summary: string;
+  key_strengths: string[];
+  key_improvement_areas: string[];
+  criterion_ratings: CriterionRating[];
+}
+
 interface AnalysisResultsProps {
-  result: string;
+  result: string | AgentEvaluationResult;
   isLoading: boolean;
 }
 
@@ -17,9 +34,118 @@ export default function AnalysisResults({ result, isLoading }: AnalysisResultsPr
     });
   };
 
-  // Helper function to identify and format improved sections
-  const renderFormattedResult = () => {
-    if (!result) return null;
+  // Helper function to check if the result is an agent evaluation
+  const isAgentEvaluation = (): boolean => {
+    try {
+      if (!result || typeof result === 'string') return false;
+      return 'overall_rating' in result && 'criterion_ratings' in result &&
+        Array.isArray(result.criterion_ratings) && 
+        result.criterion_ratings.length > 0;
+    } catch (err) {
+      console.error('Error parsing agent evaluation result:', err);
+      return false;
+    }
+  };
+
+  // Render the agent-based evaluation results
+  const renderAgentEvaluation = () => {
+    try {
+      if (!result || typeof result === 'string') return null;
+      
+      const agentResult = result as AgentEvaluationResult;
+      
+      // Validate the structure to avoid rendering errors
+      if (!agentResult.overall_rating || !agentResult.summary ||
+          !Array.isArray(agentResult.key_strengths) || 
+          !Array.isArray(agentResult.key_improvement_areas) ||
+          !Array.isArray(agentResult.criterion_ratings)) {
+        throw new Error('Invalid agent evaluation result structure');
+      }
+      
+      return (
+        <div className="space-y-6">
+          {/* Overall Rating and Summary */}
+          <div className="border rounded-lg p-4 bg-white shadow-sm">
+            <div className="flex justify-between items-center mb-4">
+              <h3 className="text-lg font-semibold">Overall Evaluation</h3>
+              <div className="bg-blue-100 text-blue-800 font-bold px-3 py-1 rounded-full">
+                Rating: {agentResult.overall_rating}/10
+              </div>
+            </div>
+            
+            <div className="whitespace-pre-wrap text-sm mb-4">
+              {agentResult.summary}
+            </div>
+            
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="bg-green-50 p-3 rounded-lg">
+                <h4 className="font-medium text-green-800 mb-2">Key Strengths</h4>
+                <ul className="list-disc pl-5 text-sm space-y-1">
+                  {agentResult.key_strengths.map((strength, idx) => (
+                    <li key={idx}>{strength}</li>
+                  ))}
+                </ul>
+              </div>
+              
+              <div className="bg-amber-50 p-3 rounded-lg">
+                <h4 className="font-medium text-amber-800 mb-2">Areas for Improvement</h4>
+                <ul className="list-disc pl-5 text-sm space-y-1">
+                  {agentResult.key_improvement_areas.map((area, idx) => (
+                    <li key={idx}>{area}</li>
+                  ))}
+                </ul>
+              </div>
+            </div>
+          </div>
+          
+          {/* Detailed Criterion Ratings */}
+          <h3 className="text-lg font-semibold mt-6">Detailed Criteria Evaluation</h3>
+          
+          {agentResult.criterion_ratings.map((criterion, index) => (
+            <div key={index} className="border rounded-lg p-4 bg-white shadow-sm">
+              <div className="flex justify-between items-center mb-2">
+                <h4 className="text-md font-semibold">{criterion.criterion_name}</h4>
+                <div className={`px-3 py-1 rounded-full font-bold ${
+                  criterion.rating >= 8 ? 'bg-green-100 text-green-800' : 
+                  criterion.rating >= 5 ? 'bg-amber-100 text-amber-800' : 
+                  'bg-red-100 text-red-800'
+                }`}>
+                  Rating: {criterion.rating}/10
+                </div>
+              </div>
+              
+              <div className="whitespace-pre-wrap text-sm mb-3">
+                {criterion.reasoning}
+              </div>
+              
+              {criterion.suggestions.length > 0 && (
+                <div className="bg-blue-50 p-3 rounded-lg">
+                  <h5 className="font-medium text-blue-800 mb-1">Suggestions</h5>
+                  <ul className="list-disc pl-5 text-sm space-y-1">
+                    {criterion.suggestions.map((suggestion, idx) => (
+                      <li key={idx}>{suggestion}</li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+            </div>
+          ))}
+        </div>
+      );
+    } catch (err) {
+      console.error('Error rendering agent evaluation:', err);
+      return (
+        <div className="p-4 border border-red-200 rounded-lg bg-red-50 text-red-700">
+          <h3 className="font-bold mb-2">Error displaying evaluation results</h3>
+          <p>There was a problem processing the agent evaluation results. Please try again or select a different analysis type.</p>
+        </div>
+      );
+    }
+  };
+
+  // Helper function to identify and format improved sections for text results
+  const renderFormattedTextResult = () => {
+    if (!result || typeof result !== 'string') return null;
 
     // Split the result into sections
     const sections = result.split(/(?=## )/);
@@ -83,7 +209,7 @@ export default function AnalysisResults({ result, isLoading }: AnalysisResultsPr
     <div className="space-y-4">
       <h2 className="text-xl font-bold">Analysis Results</h2>
       {result ? (
-        renderFormattedResult()
+        isAgentEvaluation() ? renderAgentEvaluation() : renderFormattedTextResult()
       ) : (
         <p className="text-gray-500">Upload your CV and click "Analyze" to see results</p>
       )}

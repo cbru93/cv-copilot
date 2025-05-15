@@ -10,11 +10,12 @@ A Next.js application that uses AI to analyze and improve CV summaries and key a
 - Analyze CV summaries or key assignments sections
 - Get detailed feedback and improvement suggestions
 - Copy improved versions directly to clipboard
+- **NEW**: Agent-based CV evaluation that provides structured feedback on multiple criteria
 
 ## Tech Stack
 
 - **Framework**: Next.js
-- **AI Integration**: Vercel AI SDK
+- **AI Integration**: Vercel AI SDK with multi-agent capabilities
 - **Styling**: Tailwind CSS
 - **PDF Parsing**: pdf-parse
 - **Supported AI Providers**: OpenAI, Anthropic, Mistral, Google
