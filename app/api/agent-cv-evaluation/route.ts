@@ -1,12 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { openai } from '@ai-sdk/openai';
 import { anthropic } from '@ai-sdk/anthropic';
-import { generateText, tool } from 'ai';
+import { generateText, generateObject } from 'ai';
 import { config, isProviderAvailable } from '../config';
 import { ModelProvider } from '../../components/ModelSelector';
 import { z } from 'zod';
 
-export const maxDuration = 120; // Extended duration for multi-step agent calls
+export const maxDuration = 60; // Set to 60 seconds for serverless functions
 
 // CV evaluation criteria
 const evaluationCriteria = [
@@ -36,11 +36,6 @@ const evaluationCriteria = [
     description: 'Evaluate how technical and soft skills are presented and substantiated.'
   }
 ];
-
-// Type for criteria tools object
-interface CriteriaTools {
-  [key: string]: any;
-}
 
 // Type for criterion rating
 interface CriterionRating {
@@ -93,7 +88,7 @@ export async function POST(req: NextRequest) {
     switch (modelProvider) {
       case 'openai':
         process.env.OPENAI_API_KEY = config.openai.apiKey;
-        model = openai(modelName, { structuredOutputs: true });
+        model = openai(modelName);
         break;
       case 'anthropic':
         process.env.ANTHROPIC_API_KEY = config.anthropic.apiKey;
@@ -175,107 +170,101 @@ export async function POST(req: NextRequest) {
       }
     }
     
-    // For OpenAI models, continue with tool-based approach
-    const criteriaTools: CriteriaTools = {};
-    
-    evaluationCriteria.forEach(criterion => {
-      criteriaTools[`evaluate_${criterion.id}`] = tool({
-        description: `Evaluate the ${criterion.name.toLowerCase()} of the CV`,
-        parameters: z.object({
-          criterion_id: z.string().describe('The ID of the criterion being evaluated'),
-          criterion_name: z.string().describe('The name of the criterion being evaluated'),
-          reasoning: z.string().describe('Detailed reasoning for the evaluation'),
-          rating: z.number().describe('Rating from 1-10, where 1 is poor and 10 is excellent'),
-          suggestions: z.array(z.string()).describe('Specific suggestions for improvement')
-        }),
-        execute: async ({ criterion_id, criterion_name, reasoning, rating, suggestions }) => {
-          return {
-            criterion_id,
-            criterion_name,
-            reasoning,
-            rating,
-            suggestions
-          };
-        }
-      });
-    });
-
-    // Add the final answer tool
-    criteriaTools['provide_final_evaluation'] = tool({
-      description: 'Provide the final comprehensive CV evaluation',
-      parameters: z.object({
-        overall_rating: z.number().describe('Overall CV rating from 1-10, where 1 is poor and 10 is excellent'),
-        summary: z.string().describe('Summary of the CV evaluation'),
-        key_strengths: z.array(z.string()).describe('Key strengths of the CV'),
-        key_improvement_areas: z.array(z.string()).describe('Key areas for improvement'),
-        criterion_ratings: z.array(
-          z.object({
-            criterion_id: z.string(),
-            criterion_name: z.string(),
-            rating: z.number().describe('Rating from 1-10'),
-            reasoning: z.string(),
-            suggestions: z.array(z.string())
-          })
-        ).describe('Ratings for each evaluation criterion')
-      }),
-      // No execute function since this is the final output
-    });
-
-    // Generate text using the AI SDK with PDF attachment
-    let result;
+    // For OpenAI models, use parallel processing pattern
     try {
-      result = await generateText({
-        model,
-        messages: [
-          {
-            role: 'system',
-            content: `You are an expert CV Evaluator Agent. Your task is to thoroughly analyze a CV and provide detailed feedback.
+      // Define schemas for each criterion evaluation
+      const criterionSchema = z.object({
+        criterion_id: z.string(),
+        criterion_name: z.string(),
+        rating: z.number().min(1).max(10),
+        reasoning: z.string(),
+        suggestions: z.array(z.string())
+      });
 
-STEP-BY-STEP PROCESS:
-1. Read and understand the CV contents completely
-2. For each evaluation criterion, call the appropriate tool to assess that aspect
-   - Use the evaluate_overall_structure tool for assessing layout and organization
-   - Use the evaluate_summary_quality tool for assessing the CV summary
-   - Use the evaluate_experience_description tool for assessing work experiences
-   - Use the evaluate_relevance_tailoring tool for assessing relevance to target roles
-   - Use the evaluate_skills_presentation tool for assessing how skills are presented
-3. After evaluating all criteria, provide a comprehensive evaluation using the provide_final_evaluation tool
+      // Run parallel evaluations for each criterion
+      const criterionPromises = evaluationCriteria.map(criterion => 
+        generateObject({
+          model: openai(modelName),
+          schema: criterionSchema,
+          system: `You are an expert CV evaluator focused specifically on ${criterion.name.toLowerCase()}. 
+          ${criterion.description}
+          Evaluate only this specific aspect of the CV and provide:
+          1. A rating from 1-10
+          2. Detailed reasoning for your rating
+          3. Specific suggestions for improvement
+          
+          Consider the following evaluation guidelines:
+          ${checklistText}`,
+          prompt: `Evaluate the ${criterion.name.toLowerCase()} of this CV. Focus ONLY on this criterion.`,
+          messages: [
+            {
+              role: 'user',
+              content: [
+                {
+                  type: 'text',
+                  text: `Please evaluate the ${criterion.name.toLowerCase()} of this CV. Provide a detailed assessment with specific feedback.`,
+                },
+                {
+                  type: 'file',
+                  data: fileBuffer,
+                  mimeType: 'application/pdf',
+                  filename: pdfFile.name,
+                }
+              ],
+            }
+          ],
+        }).then(result => ({
+          ...result.object,
+          criterion_id: criterion.id,
+          criterion_name: criterion.name
+        }))
+      );
 
-RATING GUIDELINES:
-- All ratings must be integers between 1 and 10, where:
-  - 1-3: Poor (significant improvement needed)
-  - 4-5: Below average (several improvements needed)
-  - 6-7: Average (some improvements possible)
-  - 8-9: Good (minor improvements possible)
-  - 10: Excellent (meets all best practices)
+      // Execute all evaluations in parallel
+      const criterionRatings = await Promise.all(criterionPromises);
 
-EVALUATION CRITERIA CHECKLIST:
-${checklistText}
+      // Once all individual evaluations are complete, generate a final summary
+      const { object: finalEvaluation } = await generateObject({
+        model: openai(modelName),
+        schema: z.object({
+          overall_rating: z.number().min(1).max(10),
+          summary: z.string(),
+          key_strengths: z.array(z.string()),
+          key_improvement_areas: z.array(z.string())
+        }),
+        system: `You are an expert CV evaluator. Your task is to synthesize detailed evaluations of different aspects of a CV and provide an overall assessment.`,
+        prompt: `Based on these detailed evaluations of different aspects of the CV, provide an overall assessment:
+        ${JSON.stringify(criterionRatings, null, 2)}
+        
+        Provide:
+        1. An overall rating from 1-10
+        2. A summary of your overall evaluation
+        3. Key strengths of the CV
+        4. Key areas for improvement`,
+      });
 
-Be specific, detailed, and constructive in your feedback. Provide actionable suggestions that would help improve the CV.`
-          },
-          {
-            role: 'user',
-            content: [
-              {
-                type: 'text',
-                text: 'Please evaluate this CV thoroughly using the agent tools. Analyze each evaluation criterion and provide a comprehensive assessment with specific feedback.',
-              },
-              {
-                type: 'file',
-                data: fileBuffer,
-                mimeType: 'application/pdf',
-                filename: pdfFile.name,
-              }
-            ],
-          }
-        ],
-        tools: criteriaTools,
-        toolChoice: 'required', // Force the model to use tools
-        maxSteps: 10, // Allow multiple steps for the agent to complete its work
+      // Combine the individual assessments with the overall evaluation
+      const result = {
+        ...finalEvaluation,
+        criterion_ratings: criterionRatings
+      };
+
+      // Ensure rating values are valid
+      const validatedResult = { 
+        ...result,
+        overall_rating: Math.max(1, Math.min(10, result.overall_rating || 5)),
+        criterion_ratings: result.criterion_ratings.map((criterion: CriterionRating) => ({
+          ...criterion,
+          rating: Math.max(1, Math.min(10, criterion.rating || 5))
+        }))
+      };
+
+      return NextResponse.json({ 
+        result: validatedResult,
+        isStructured: true
       });
     } catch (error) {
-      console.error('Error during OpenAI/model API call:', error);
+      console.error('Error during parallel CV evaluation:', error);
       return NextResponse.json(
         { 
           error: 'Error communicating with AI model API',
@@ -285,47 +274,6 @@ Be specific, detailed, and constructive in your feedback. Provide actionable sug
         { status: 500 }
       );
     }
-
-    // Safely access the tool calls
-    const toolCalls = result.toolCalls || [];
-    
-    // Find the final evaluation tool call
-    const finalEvaluation = toolCalls.find(
-      call => call.toolName === 'provide_final_evaluation'
-    );
-
-    if (!finalEvaluation) {
-      return NextResponse.json(
-        { error: 'Failed to generate final evaluation' },
-        { status: 500 }
-      );
-    }
-
-    // Validate the ratings are within range
-    const validatedResult = { ...finalEvaluation.args };
-    
-    // Ensure overall rating is valid
-    if (typeof validatedResult.overall_rating === 'number') {
-      validatedResult.overall_rating = Math.max(1, Math.min(10, validatedResult.overall_rating));
-    } else {
-      validatedResult.overall_rating = 5; // Default to middle rating if invalid
-    }
-    
-    // Ensure criterion ratings are valid
-    if (Array.isArray(validatedResult.criterion_ratings)) {
-      validatedResult.criterion_ratings = validatedResult.criterion_ratings.map((criterion: CriterionRating) => ({
-        ...criterion,
-        rating: typeof criterion.rating === 'number' 
-          ? Math.max(1, Math.min(10, criterion.rating)) 
-          : 5
-      }));
-    }
-
-    return NextResponse.json({ 
-      result: validatedResult,
-      allToolCalls: toolCalls,
-      isStructured: true
-    });
   } catch (error) {
     console.error('Error processing agent-based CV evaluation:', error);
     

@@ -34,6 +34,22 @@ export default function AnalysisResults({ result, isLoading }: AnalysisResultsPr
     });
   };
 
+  // Helper function to check if the result contains an error message
+  const isErrorResult = (): boolean => {
+    try {
+      if (typeof result === 'string' && (
+          result.includes('Error:') || 
+          result.includes('error:') || 
+          result.includes('failed') ||
+          result.includes('Failed'))) {
+        return true;
+      }
+      return false;
+    } catch {
+      return false;
+    }
+  };
+
   // Helper function to check if the result is an agent evaluation
   const isAgentEvaluation = (): boolean => {
     try {
@@ -45,6 +61,27 @@ export default function AnalysisResults({ result, isLoading }: AnalysisResultsPr
       console.error('Error parsing agent evaluation result:', err);
       return false;
     }
+  };
+
+  // Render error message
+  const renderErrorMessage = () => {
+    return (
+      <div className="p-4 border border-red-200 rounded-lg bg-red-50 text-red-700">
+        <h3 className="font-bold mb-2">Agent Evaluation Error</h3>
+        <p className="mb-3">There was a problem processing the agent-based CV evaluation. This feature might be experiencing issues in the deployed environment.</p>
+        <div className="p-3 bg-white rounded border border-red-100 text-red-800 text-sm font-mono overflow-auto">
+          {typeof result === 'string' ? result : 'Unknown error occurred'}
+        </div>
+        <div className="mt-4 bg-amber-50 p-3 rounded border border-amber-200">
+          <h4 className="font-medium text-amber-800 mb-1">Suggestions:</h4>
+          <ul className="list-disc pl-5 text-sm space-y-1 text-amber-700">
+            <li>Try using the "CV Summary" or "Key Assignments" analysis type instead</li>
+            <li>Try with a smaller CV file (under 1MB)</li>
+            <li>If this is urgent, try running the application locally</li>
+          </ul>
+        </div>
+      </div>
+    );
   };
 
   // Render the agent-based evaluation results
@@ -209,6 +246,7 @@ export default function AnalysisResults({ result, isLoading }: AnalysisResultsPr
     <div className="space-y-4">
       <h2 className="text-xl font-bold">Analysis Results</h2>
       {result ? (
+        isErrorResult() ? renderErrorMessage() :
         isAgentEvaluation() ? renderAgentEvaluation() : renderFormattedTextResult()
       ) : (
         <p className="text-gray-500">Upload your CV and click "Analyze" to see results</p>

@@ -92,6 +92,12 @@ export default function Home() {
         const errorData = await response.json().catch(e => ({ 
           error: `Failed to parse error response: ${response.status} ${response.statusText}` 
         }));
+        
+        // If we're doing agent evaluation and get a 500 error, provide a more specific message
+        if (analysisType === 'agent_evaluation' && response.status === 500) {
+          throw new Error('The agent-based evaluation is currently experiencing issues in the deployed environment. Please try the "CV Summary" or "Key Assignments" analysis types instead.');
+        }
+        
         throw new Error(errorData.error || `Failed to analyze CV: ${response.status} ${response.statusText}`);
       }
 
@@ -114,9 +120,12 @@ export default function Home() {
       }
     } catch (err) {
       if (err instanceof Error) {
+        setResult(err.message); // Set as result so our enhanced error component can display it
         setError(err.message);
       } else {
-        setError('An error occurred during analysis. Please try again.');
+        const message = 'An error occurred during analysis. Please try again or try a different analysis type.';
+        setResult(message);
+        setError(message);
       }
       console.error('Analysis error:', err);
     } finally {
