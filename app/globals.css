@@ -1,33 +1,29 @@
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
+/* Import Designsystemet CSS and theme first */
+@import '@digdir/designsystemet-css/index.css';
+@import '@digdir/designsystemet-theme/digdir.css';
 
-:root {
-  --foreground-rgb: 0, 0, 0;
-  --background-start-rgb: 214, 219, 220;
-  --background-end-rgb: 255, 255, 255;
-}
+/* Set up the layer ordering - "ds" layer must come after Tailwind layers */
+@layer theme, base, components, utilities, ds;
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --foreground-rgb: 255, 255, 255;
-    --background-start-rgb: 0, 0, 0;
-    --background-end-rgb: 0, 0, 0;
-  }
-}
+/* Import Tailwind in specific layers */
+@import 'tailwindcss/theme.css' layer(theme);
+/* Skip preflight to avoid conflicting with Designsystemet's reset */
+/* @import 'tailwindcss/preflight.css' layer(base); */
+@import 'tailwindcss/utilities.css' layer(utilities);
 
+/* Font settings */
 body {
-  color: rgb(var(--foreground-rgb));
-  background: linear-gradient(
-      to bottom,
-      transparent,
-      rgb(var(--background-end-rgb))
-    )
-    rgb(var(--background-start-rgb));
+  font-family: 'Inter', Arial, sans-serif;
+  font-feature-settings: 'cv05' 1; /* Enable lowercase l with tail */
 }
 
-@layer utilities {
-  .text-balance {
-    text-wrap: balance;
-  }
+/* Base styles for design system compatibility */
+* {
+  border-color: var(--ds-color-border-default);
+  outline-color: var(--ds-color-accent-border-default);
+}
+
+/* Text utilities */
+.text-balance {
+  text-wrap: balance;
 }

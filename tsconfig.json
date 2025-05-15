@@ -26,7 +26,11 @@
         "./*"
       ]
     },
-    "target": "ES2017"
+    "target": "ES2017",
+    "types": [
+      "@digdir/designsystemet-theme",
+      "@digdir/designsystemet-react/react-types"
+    ]
   },
   "include": [
     "next-env.d.ts",

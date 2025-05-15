@@ -1,123 +1,200 @@
-import Image from "next/image";
-import { unstable_noStore as noStore } from "next/cache";
-import { CurrentTimeFromAPI } from "./components/CurrentTimeFromAPI";
+'use client';
+
+import { useState } from 'react';
+import FileUpload from './components/FileUpload';
+import ModelSelector, { ModelOption } from './components/ModelSelector';
+import AnalysisResults from './components/AnalysisResults';
+import { parsePDF, parseTextFile, defaultChecklistContent } from './utils/fileParser';
+import DesignSystemTest from './components/DesignSystemTest';
+import { 
+  Heading, 
+  Button, 
+  Alert, 
+  Card,
+  CardBlock,
+  Radio, 
+  Paragraph,
+  Divider
+} from '@digdir/designsystemet-react';
 
 export default function Home() {
-  noStore();
+  const [cvText, setCvText] = useState<string>('');
+  const [checklistText, setChecklistText] = useState<string>(defaultChecklistContent);
+  const [selectedModel, setSelectedModel] = useState<ModelOption>({
+    provider: 'openai',
+    model: 'gpt-4o',
+    displayName: 'OpenAI GPT-4o'
+  });
+  const [analysisType, setAnalysisType] = useState<'summary' | 'assignments'>('summary');
+  const [result, setResult] = useState<string>('');
+  const [isLoading, setIsLoading] = useState<boolean>(false);
+  const [error, setError] = useState<string | null>(null);
+  const [showDesignSystem, setShowDesignSystem] = useState<boolean>(false);
 
-  const timeOnServer = new Date().toLocaleTimeString('en-US');
+  const handleCVUpload = async (file: File) => {
+    try {
+      setError(null);
+      const text = await parsePDF(file);
+      setCvText(text);
+    } catch (err) {
+      setError('Failed to parse CV file. Please make sure it is a valid PDF.');
+      console.error(err);
+    }
+  };
+
+  const handleChecklistUpload = async (file: File) => {
+    try {
+      setError(null);
+      const text = await parseTextFile(file);
+      setChecklistText(text);
+    } catch (err) {
+      setError('Failed to parse checklist file. Please make sure it is a valid text file.');
+      console.error(err);
+    }
+  };
+
+  const handleAnalysisTypeChange = (type: 'summary' | 'assignments') => {
+    setAnalysisType(type);
+  };
+
+  const handleAnalyze = async () => {
+    if (!cvText) {
+      setError('Please upload a CV file first.');
+      return;
+    }
+
+    try {
+      setIsLoading(true);
+      setError(null);
+      setResult('');
+
+      const response = await fetch('/api/analyze-cv', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          pdfText: cvText,
+          checklistText,
+          analysisType,
+          modelProvider: selectedModel.provider,
+          modelName: selectedModel.model,
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to analyze CV');
+      }
+
+      const data = await response.json();
+      setResult(data.result);
+    } catch (err) {
+      setError('An error occurred during analysis. Please try again.');
+      console.error(err);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   return (
-    <main className="flex min-h-screen flex-col items-center justify-between p-24">
-      <div className="z-10 max-w-5xl w-full items-center justify-between font-mono text-sm lg:flex">
-        <p className="fixed left-0 top-0 flex w-full justify-center border-b border-gray-300 bg-gradient-to-b from-zinc-200 pb-6 pt-8 backdrop-blur-2xl dark:border-neutral-800 dark:bg-zinc-800/30 dark:from-inherit lg:static lg:w-auto  lg:rounded-xl lg:border lg:bg-gray-200 lg:p-4 lg:dark:bg-zinc-800/30">
-          Get started by editing&nbsp;
-          <code className="font-mono font-bold">app/page.tsx</code>
-        </p>
-        <div className="fixed bottom-0 left-0 flex h-48 w-full items-end justify-center bg-gradient-to-t from-white via-white dark:from-black dark:via-black lg:static lg:h-auto lg:w-auto lg:bg-none">
-          <a
-            className="pointer-events-none flex place-items-center gap-2 p-8 lg:pointer-events-auto lg:p-0"
-            href="https://vercel.com?utm_source=create-next-app&utm_medium=appdir-template&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
+    <main className="min-h-screen p-6 md:p-12">
+      <div className="max-w-6xl mx-auto">
+        <div className="text-center mb-10">
+          <Heading level={1} data-size="xl">
+            CV Enhancement Tool
+          </Heading>
+          <Paragraph data-spacing className="text-center max-w-3xl mx-auto">
+            Improve your CV with AI-powered analysis based on company guidelines. Upload your CV, select an analysis type, and get personalized recommendations.
+          </Paragraph>
+          <Button 
+            variant="secondary"
+            onClick={() => setShowDesignSystem(!showDesignSystem)}
+            className="mt-4"
           >
-            By{" "}
-            <Image
-              src="/vercel.svg"
-              alt="Vercel Logo"
-              className="dark:invert"
-              width={100}
-              height={24}
-              priority
-            />
-          </a>
+            {showDesignSystem ? 'Hide' : 'Show'} Design System Components
+          </Button>
         </div>
-      </div>
 
-      <div>
-        This is a Next.js application hosted on Azure Static Web Apps with hybrid rendering. The time on the server is <strong>{timeOnServer}</strong>.
-      </div>
+        {showDesignSystem && (
+          <Card className="mb-8">
+            <Card.Block>
+              <Heading level={2} data-size="sm">Design System Demo</Heading>
+            </Card.Block>
+            <Card.Block>
+              <DesignSystemTest />
+            </Card.Block>
+          </Card>
+        )}
 
-      <div className="relative flex place-items-center before:absolute before:h-[300px] before:w-full sm:before:w-[480px] before:-translate-x-1/2 before:rounded-full before:bg-gradient-radial before:from-white before:to-transparent before:blur-2xl before:content-[''] after:absolute after:-z-20 after:h-[180px] after:w-full sm:after:w-[240px] after:translate-x-1/3 after:bg-gradient-conic after:from-sky-200 after:via-blue-200 after:blur-2xl after:content-[''] before:dark:bg-gradient-to-br before:dark:from-transparent before:dark:to-blue-700 before:dark:opacity-10 after:dark:from-sky-900 after:dark:via-[#0141ff] after:dark:opacity-40 before:lg:h-[360px] z-[-1]">
-        <Image
-          className="relative dark:drop-shadow-[0_0_0.3rem_#ffffff70] dark:invert"
-          src="/next.svg"
-          alt="Next.js Logo"
-          width={180}
-          height={37}
-          priority
-        />
-      </div>
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+          <Card className="col-span-1">
+            <Card.Block>
+              <Heading level={2} data-size="sm">Upload Files</Heading>
+            </Card.Block>
+            <Card.Block>
+              <FileUpload 
+                onCVUpload={handleCVUpload} 
+                onChecklistUpload={handleChecklistUpload} 
+              />
+              
+              <Divider data-spacing />
+              
+              <div className="mt-6 space-y-4">
+                <ModelSelector onModelSelect={setSelectedModel} />
+                
+                <div className="space-y-2">
+                  <Heading level={3} data-size="xs">Analysis Type</Heading>
+                  <div className="flex space-x-4">
+                    <Radio
+                      name="analysisType"
+                      value="summary"
+                      checked={analysisType === 'summary'}
+                      onChange={() => handleAnalysisTypeChange('summary')}
+                      label="CV Summary"
+                    />
+                    <Radio
+                      name="analysisType"
+                      value="assignments"
+                      checked={analysisType === 'assignments'}
+                      onChange={() => handleAnalysisTypeChange('assignments')}
+                      label="Key Assignments"
+                    />
+                  </div>
+                </div>
 
-      <CurrentTimeFromAPI />
+                <Button
+                  variant="primary"
+                  onClick={handleAnalyze}
+                  disabled={!cvText || isLoading}
+                  className="w-full"
+                >
+                  {isLoading ? 'Analyzing...' : 'Analyze'}
+                </Button>
 
-      <div className="mb-32 grid text-center lg:max-w-5xl lg:w-full lg:mb-0 lg:grid-cols-4 lg:text-left">
-        <a
-          href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template&utm_campaign=create-next-app"
-          className="group rounded-lg border border-transparent px-5 py-4 transition-colors hover:border-gray-300 hover:bg-gray-100 hover:dark:border-neutral-700 hover:dark:bg-neutral-800/30"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <h2 className={`mb-3 text-2xl font-semibold`}>
-            Docs{" "}
-            <span className="inline-block transition-transform group-hover:translate-x-1 motion-reduce:transform-none">
-              -&gt;
-            </span>
-          </h2>
-          <p className={`m-0 max-w-[30ch] text-sm opacity-50`}>
-            Find in-depth information about Next.js features and API.
-          </p>
-        </a>
+                {error && (
+                  <Alert data-color="danger">
+                    {error}
+                  </Alert>
+                )}
+              </div>
+            </Card.Block>
+          </Card>
 
-        <a
-          href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          className="group rounded-lg border border-transparent px-5 py-4 transition-colors hover:border-gray-300 hover:bg-gray-100 hover:dark:border-neutral-700 hover:dark:bg-neutral-800/30"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <h2 className={`mb-3 text-2xl font-semibold`}>
-            Learn{" "}
-            <span className="inline-block transition-transform group-hover:translate-x-1 motion-reduce:transform-none">
-              -&gt;
-            </span>
-          </h2>
-          <p className={`m-0 max-w-[30ch] text-sm opacity-50`}>
-            Learn about Next.js in an interactive course with&nbsp;quizzes!
-          </p>
-        </a>
+          <Card className="col-span-1 md:col-span-2">
+            <Card.Block>
+              <Heading level={2} data-size="sm">Analysis Results</Heading>
+            </Card.Block>
+            <Card.Block>
+              <AnalysisResults result={result} isLoading={isLoading} />
+            </Card.Block>
+          </Card>
+        </div>
 
-        <a
-          href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template&utm_campaign=create-next-app"
-          className="group rounded-lg border border-transparent px-5 py-4 transition-colors hover:border-gray-300 hover:bg-gray-100 hover:dark:border-neutral-700 hover:dark:bg-neutral-800/30"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <h2 className={`mb-3 text-2xl font-semibold`}>
-            Templates{" "}
-            <span className="inline-block transition-transform group-hover:translate-x-1 motion-reduce:transform-none">
-              -&gt;
-            </span>
-          </h2>
-          <p className={`m-0 max-w-[30ch] text-sm opacity-50`}>
-            Explore starter templates for Next.js.
-          </p>
-        </a>
-
-        <a
-          href="https://learn.microsoft.com/en-us/azure/static-web-apps/deploy-nextjs-hybrid"
-          className="group rounded-lg border border-transparent px-5 py-4 transition-colors hover:border-gray-300 hover:bg-gray-100 hover:dark:border-neutral-700 hover:dark:bg-neutral-800/30"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <h2 className={`mb-3 text-2xl font-semibold`}>
-            Deploy{" "}
-            <span className="inline-block transition-transform group-hover:translate-x-1 motion-reduce:transform-none">
-              -&gt;
-            </span>
-          </h2>
-          <p className={`m-0 max-w-[30ch] text-sm opacity-50 text-balance`}>
-            Deploy your Next.js site to a public URL with Azure Static Web Apps.
-          </p>
-        </a>
+        <div className="mt-10 text-center">
+          <Paragraph data-size="sm" data-color="subtle">
+            Built with Next.js and the Vercel AI SDK. Upload your CV and checklist to get started.
+          </Paragraph>
+        </div>
       </div>
     </main>
   );
