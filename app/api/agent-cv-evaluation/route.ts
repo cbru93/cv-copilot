@@ -182,7 +182,13 @@ export async function POST(req: NextRequest) {
       });
 
       // Run parallel evaluations for each criterion
-      const criterionPromises = evaluationCriteria.map(criterion => 
+      // To avoid overloading the serverless function, evaluate only the first 3 criteria in parallel
+      // and then the remaining 2 to distribute the load
+      const firstBatchCriteria = evaluationCriteria.slice(0, 3);
+      const secondBatchCriteria = evaluationCriteria.slice(3);
+
+      // Process first batch
+      const firstBatchPromises = firstBatchCriteria.map(criterion => 
         generateObject({
           model: openai(modelName),
           schema: criterionSchema,
@@ -195,7 +201,6 @@ export async function POST(req: NextRequest) {
           
           Consider the following evaluation guidelines:
           ${checklistText}`,
-          prompt: `Evaluate the ${criterion.name.toLowerCase()} of this CV. Focus ONLY on this criterion.`,
           messages: [
             {
               role: 'user',
@@ -220,47 +225,105 @@ export async function POST(req: NextRequest) {
         }))
       );
 
-      // Execute all evaluations in parallel
-      const criterionRatings = await Promise.all(criterionPromises);
+      const firstBatchResults = await Promise.all(firstBatchPromises);
 
-      // Once all individual evaluations are complete, generate a final summary
-      const { object: finalEvaluation } = await generateObject({
-        model: openai(modelName),
-        schema: z.object({
-          overall_rating: z.number().min(1).max(10),
-          summary: z.string(),
-          key_strengths: z.array(z.string()),
-          key_improvement_areas: z.array(z.string())
-        }),
-        system: `You are an expert CV evaluator. Your task is to synthesize detailed evaluations of different aspects of a CV and provide an overall assessment.`,
-        prompt: `Based on these detailed evaluations of different aspects of the CV, provide an overall assessment:
-        ${JSON.stringify(criterionRatings, null, 2)}
-        
-        Provide:
-        1. An overall rating from 1-10
-        2. A summary of your overall evaluation
-        3. Key strengths of the CV
-        4. Key areas for improvement`,
-      });
+      // Process second batch
+      const secondBatchPromises = secondBatchCriteria.map(criterion => 
+        generateObject({
+          model: openai(modelName),
+          schema: criterionSchema,
+          system: `You are an expert CV evaluator focused specifically on ${criterion.name.toLowerCase()}. 
+          ${criterion.description}
+          Evaluate only this specific aspect of the CV and provide:
+          1. A rating from 1-10
+          2. Detailed reasoning for your rating
+          3. Specific suggestions for improvement
+          
+          Consider the following evaluation guidelines:
+          ${checklistText}`,
+          messages: [
+            {
+              role: 'user',
+              content: [
+                {
+                  type: 'text',
+                  text: `Please evaluate the ${criterion.name.toLowerCase()} of this CV. Provide a detailed assessment with specific feedback.`,
+                },
+                {
+                  type: 'file',
+                  data: fileBuffer,
+                  mimeType: 'application/pdf',
+                  filename: pdfFile.name,
+                }
+              ],
+            }
+          ],
+        }).then(result => ({
+          ...result.object,
+          criterion_id: criterion.id,
+          criterion_name: criterion.name
+        }))
+      );
 
-      // Combine the individual assessments with the overall evaluation
+      const secondBatchResults = await Promise.all(secondBatchPromises);
+      
+      // Combine results from both batches
+      const criterionRatings = [...firstBatchResults, ...secondBatchResults];
+
+      // Calculate overall rating from the individual criteria (no separate API call)
+      const overallRating = Math.round(
+        criterionRatings.reduce((sum, criterion) => sum + criterion.rating, 0) / criterionRatings.length
+      );
+
+      // Extract key strengths based on highest rated criteria
+      const highRatedCriteria = criterionRatings
+        .filter(criterion => criterion.rating >= 7)
+        .sort((a, b) => b.rating - a.rating);
+      
+      // Extract areas for improvement based on lowest rated criteria
+      const lowRatedCriteria = criterionRatings
+        .filter(criterion => criterion.rating < 7)
+        .sort((a, b) => a.rating - b.rating);
+
+      // Generate key strengths and improvement areas from the criteria ratings
+      const key_strengths = highRatedCriteria.length > 0 
+        ? highRatedCriteria.flatMap(criterion => 
+            criterion.suggestions.length > 0 
+              ? [`Strong ${criterion.criterion_name.toLowerCase()} (rated ${criterion.rating}/10)`] 
+              : []
+          )
+        : ["No specific strengths identified"];
+
+      const key_improvement_areas = lowRatedCriteria.length > 0
+        ? lowRatedCriteria.flatMap(criterion => 
+            criterion.suggestions.length > 0 
+              ? [`Improve ${criterion.criterion_name.toLowerCase()} (rated ${criterion.rating}/10)`] 
+              : []
+          )
+        : ["No specific improvement areas identified"];
+
+      // Create summary based on overall rating
+      let summary = `This CV has received an overall rating of ${overallRating}/10. `;
+      
+      if (overallRating >= 8) {
+        summary += "Overall, this is a strong CV that effectively showcases the candidate's qualifications and experience.";
+      } else if (overallRating >= 6) {
+        summary += "This CV adequately presents the candidate's background but has room for improvement in certain areas.";
+      } else {
+        summary += "This CV needs significant improvement to effectively showcase the candidate's qualifications and experience.";
+      }
+
+      // Combine the results into the final evaluation structure
       const result = {
-        ...finalEvaluation,
+        overall_rating: overallRating,
+        summary,
+        key_strengths: key_strengths.slice(0, 5),  // Limit to 5 strengths
+        key_improvement_areas: key_improvement_areas.slice(0, 5),  // Limit to 5 improvement areas
         criterion_ratings: criterionRatings
       };
 
-      // Ensure rating values are valid
-      const validatedResult = { 
-        ...result,
-        overall_rating: Math.max(1, Math.min(10, result.overall_rating || 5)),
-        criterion_ratings: result.criterion_ratings.map((criterion: CriterionRating) => ({
-          ...criterion,
-          rating: Math.max(1, Math.min(10, criterion.rating || 5))
-        }))
-      };
-
       return NextResponse.json({ 
-        result: validatedResult,
+        result,
         isStructured: true
       });
     } catch (error) {
