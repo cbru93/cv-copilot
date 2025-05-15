@@ -14,7 +14,10 @@ import {
   CardBlock,
   Radio, 
   Paragraph,
-  Divider
+  Divider,
+  Label,
+  Switch,
+  Tag
 } from '@digdir/designsystemet-react';
 
 export default function Home() {
@@ -121,10 +124,10 @@ export default function Home() {
     <main className="min-h-screen p-6 md:p-12 bg-gray-50">
       <div className="max-w-6xl mx-auto">
         <div className="text-center mb-10">
-          <h1 className="text-3xl md:text-4xl font-bold mb-3">CV Enhancement Tool</h1>
-          <p className="text-gray-600 max-w-3xl mx-auto">
+          <Heading level={1} data-size="xl">CV Enhancement Tool</Heading>
+          <Paragraph data-size="md" className="max-w-3xl mx-auto">
             Improve your CV with AI-powered analysis based on company guidelines. Upload your CV, select an analysis type, and get personalized recommendations.
-          </p>
+          </Paragraph>
           <Button 
             variant="primary"
             onClick={() => setShowDesignSystem(!showDesignSystem)}
@@ -146,87 +149,88 @@ export default function Home() {
         )}
 
         <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-          <div className="col-span-1 bg-white p-6 rounded-lg shadow-sm">
-            <h2 className="text-xl font-bold mb-4">Upload Files</h2>
-            <FileUpload 
-              onCVUpload={handleCVUpload} 
-              onChecklistUpload={handleChecklistUpload} 
-            />
-            
-            <div className="mt-6 space-y-4">
-              <ModelSelector onModelSelect={setSelectedModel} />
+          <Card className="col-span-1">
+            <Card.Block>
+              <Heading level={2} data-size="sm">Upload Files</Heading>
+            </Card.Block>
+            <Card.Block>
+              <FileUpload 
+                onCVUpload={handleCVUpload} 
+                onChecklistUpload={handleChecklistUpload} 
+              />
               
-              <div className="space-y-2">
-                <h3 className="text-md font-medium">Analysis Type</h3>
-                <div className="flex flex-col space-y-2">
-                  <label className="flex items-center space-x-2">
-                    <input
-                      type="radio"
+              <Divider data-spacing="true" className="my-4" />
+              
+              <div className="space-y-4">
+                <ModelSelector onModelSelect={setSelectedModel} />
+                
+                <div className="space-y-2">
+                  <Heading level={3} data-size="xs">Analysis Type</Heading>
+                  <div className="flex flex-col space-y-2">
+                    <Radio
                       name="analysisType"
+                      value="summary"
                       checked={analysisType === 'summary'}
                       onChange={() => handleAnalysisTypeChange('summary')}
-                      className="h-4 w-4"
+                      label="CV Summary"
                     />
-                    <span>CV Summary</span>
-                  </label>
-                  <label className="flex items-center space-x-2">
-                    <input
-                      type="radio"
+                    <Radio
                       name="analysisType"
+                      value="assignments" 
                       checked={analysisType === 'assignments'}
                       onChange={() => handleAnalysisTypeChange('assignments')}
-                      className="h-4 w-4"
+                      label="Key Assignments"
                     />
-                    <span>Key Assignments</span>
-                  </label>
-                  <label className="flex items-center space-x-2">
-                    <input
-                      type="radio"
+                    <Radio
                       name="analysisType"
+                      value="agent_evaluation"
                       checked={analysisType === 'agent_evaluation'}
                       onChange={() => handleAnalysisTypeChange('agent_evaluation')}
-                      className="h-4 w-4"
+                      label="Agent-based CV Evaluation"
                     />
-                    <span>Agent-based CV Evaluation</span>
-                  </label>
-                  
-                  {analysisType === 'agent_evaluation' && (
-                    <div className="mt-2 px-3 py-2 bg-blue-50 text-blue-800 text-xs rounded">
-                      <p><strong>Note:</strong> Agent-based evaluation works best with OpenAI models (GPT-4 recommended). This feature uses multiple AI agents to provide detailed ratings across different CV criteria.</p>
-                    </div>
-                  )}
+                    
+                    {analysisType === 'agent_evaluation' && (
+                      <Alert data-color="info" className="mt-2">
+                        <Paragraph data-size="xs">
+                          <strong>Note:</strong> Agent-based evaluation works best with OpenAI models (GPT-4 recommended). This feature uses multiple AI agents to provide detailed ratings across different CV criteria.
+                        </Paragraph>
+                      </Alert>
+                    )}
+                  </div>
                 </div>
+
+                <Button
+                  variant="primary"
+                  onClick={handleAnalyze}
+                  disabled={!cvFile || isLoading}
+                  className="w-full"
+                >
+                  {isLoading ? 'Analyzing...' : 'Analyze'}
+                </Button>
+
+                {error && (
+                  <Alert data-color="danger">
+                    {error}
+                  </Alert>
+                )}
               </div>
+            </Card.Block>
+          </Card>
 
-              <button
-                onClick={handleAnalyze}
-                disabled={!cvFile || isLoading}
-                className={`w-full py-2 px-4 rounded-md ${
-                  !cvFile || isLoading
-                    ? 'bg-gray-300 cursor-not-allowed'
-                    : 'bg-blue-600 hover:bg-blue-700 text-white'
-                } transition`}
-              >
-                {isLoading ? 'Analyzing...' : 'Analyze'}
-              </button>
-
-              {error && (
-                <div className="p-3 bg-red-100 text-red-700 rounded-md text-sm">
-                  {error}
-                </div>
-              )}
-            </div>
-          </div>
-
-          <div className="col-span-1 md:col-span-2 bg-white p-6 rounded-lg shadow-sm">
-            <AnalysisResults result={result} isLoading={isLoading} />
-          </div>
+          <Card className="col-span-1 md:col-span-2">
+            <Card.Block>
+              <Heading level={2} data-size="sm">Analysis Results</Heading>
+            </Card.Block>
+            <Card.Block>
+              <AnalysisResults result={result} isLoading={isLoading} />
+            </Card.Block>
+          </Card>
         </div>
 
-        <div className="mt-10 text-center text-sm text-gray-500">
-          <p>
+        <div className="mt-10 text-center">
+          <Paragraph data-size="xs" data-color="subtle">
             Built with Next.js and the Vercel AI SDK. Upload your CV and checklist to get started.
-          </p>
+          </Paragraph>
         </div>
       </div>
     </main>
