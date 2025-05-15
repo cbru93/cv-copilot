@@ -83,27 +83,60 @@ export default function Home() {
         ? '/api/agent-cv-evaluation' 
         : '/api/analyze-cv';
 
+      console.log(`Calling ${endpoint} with model: ${selectedModel.provider}/${selectedModel.model}`);
+      
       const response = await fetch(endpoint, {
         method: 'POST',
         body: formData,
       });
 
+      // If the response is not OK
       if (!response.ok) {
-        const errorData = await response.json().catch(e => ({ 
-          error: `Failed to parse error response: ${response.status} ${response.statusText}` 
-        }));
+        let errorData;
+        
+        // Try to parse the error response
+        try {
+          errorData = await response.json();
+          console.log('Server error response:', errorData);
+          
+          // If we have debug logs, include them in the error message
+          if (errorData.logs && Array.isArray(errorData.logs)) {
+            const errorWithLogs = {
+              error: errorData.error || `Failed to analyze CV: ${response.status}`,
+              details: errorData.details || response.statusText,
+              logs: errorData.logs
+            };
+            
+            // Set the error in a format that the AnalysisResults component can display
+            setResult(JSON.stringify(errorWithLogs));
+            throw new Error(errorData.error || `Failed to analyze CV: ${response.status} ${response.statusText}`);
+          }
+        } catch (e: unknown) {
+          // If parsing fails, create a basic error
+          errorData = { 
+            error: `Failed to parse error response: ${response.status} ${response.statusText}` 
+          };
+        }
         
         // If we're doing agent evaluation and get a 500 error, provide a more specific message
         if (analysisType === 'agent_evaluation' && response.status === 500) {
-          throw new Error('The agent-based evaluation is currently experiencing issues in the deployed environment. Please try the "CV Summary" or "Key Assignments" analysis types instead.');
+          const agentErrorMsg = 'The agent-based evaluation is currently experiencing issues in the deployed environment. Please try the "CV Summary" or "Key Assignments" analysis types instead.';
+          setResult(JSON.stringify({ error: agentErrorMsg }));
+          throw new Error(agentErrorMsg);
         }
         
         throw new Error(errorData.error || `Failed to analyze CV: ${response.status} ${response.statusText}`);
       }
 
-      const data = await response.json().catch(e => {
-        throw new Error(`Failed to parse response data: ${e.message}`);
-      });
+      // Try to parse the response data
+      let data;
+      try {
+        data = await response.json();
+        console.log('Server success response:', data);
+      } catch (e: unknown) {
+        const errorMessage = e instanceof Error ? e.message : 'Unknown parsing error';
+        throw new Error(`Failed to parse response data: ${errorMessage}`);
+      }
       
       // Different endpoints return different structures
       if (analysisType === 'agent_evaluation') {
@@ -115,12 +148,19 @@ export default function Home() {
           // For OpenAI, we get structured data
           setResult(data.result);
         }
+        
+        // If debug logs are included, log them to console
+        if (data.debug && data.debug.logs) {
+          console.log('Server debug logs:', data.debug.logs);
+        }
       } else {
         setResult(data.result);
       }
     } catch (err) {
       if (err instanceof Error) {
-        setResult(err.message); // Set as result so our enhanced error component can display it
+        if (!result) { // Only set the result if it hasn't been set already
+          setResult(err.message);
+        }
         setError(err.message);
       } else {
         const message = 'An error occurred during analysis. Please try again or try a different analysis type.';

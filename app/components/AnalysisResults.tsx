@@ -65,6 +65,13 @@ export default function AnalysisResults({ result, isLoading }: AnalysisResultsPr
 
   // Render error message
   const renderErrorMessage = () => {
+    // Check if debug logs are available in the result
+    const debugLogs: string[] = typeof result === 'string' && result.includes('"logs":') 
+      ? JSON.parse(result).logs || []
+      : [];
+    
+    const hasDebugInfo = debugLogs.length > 0;
+    
     return (
       <div className="p-4 border border-red-200 rounded-lg bg-red-50 text-red-700">
         <h3 className="font-bold mb-2">Agent Evaluation Error</h3>
@@ -72,6 +79,18 @@ export default function AnalysisResults({ result, isLoading }: AnalysisResultsPr
         <div className="p-3 bg-white rounded border border-red-100 text-red-800 text-sm font-mono overflow-auto">
           {typeof result === 'string' ? result : 'Unknown error occurred'}
         </div>
+        
+        {hasDebugInfo && (
+          <div className="mt-4 p-3 bg-gray-800 text-green-400 rounded border border-gray-700 font-mono text-xs overflow-auto max-h-64">
+            <h4 className="font-medium mb-2">Debug Logs:</h4>
+            <pre>
+              {debugLogs.map((log: string, index: number) => (
+                <div key={index}>{log}</div>
+              ))}
+            </pre>
+          </div>
+        )}
+        
         <div className="mt-4 bg-amber-50 p-3 rounded border border-amber-200">
           <h4 className="font-medium text-amber-800 mb-1">Suggestions:</h4>
           <ul className="list-disc pl-5 text-sm space-y-1 text-amber-700">
