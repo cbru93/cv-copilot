@@ -32,6 +32,22 @@ jobs:
           api_location: "" # Api source code path - optional
           output_location: "" # Built app content directory - optional
           ###### End of Repository/Build Configurations ######
+      
+      # Set environment variables in Azure Static Web App
+      - name: Azure CLI Login
+        uses: azure/login@v1
+        with:
+          creds: ${{ secrets.AZURE_CREDENTIALS }}
+      
+      - name: Set App Settings in Azure Static Web App
+        uses: azure/CLI@v1
+        with:
+          inlineScript: |
+            az staticwebapp appsettings set --name my-first-static-web-app --resource-group rg-training --setting-names \
+            OPENAI_API_KEY="${{ secrets.OPENAI_API_KEY }}" \
+            ANTHROPIC_API_KEY="${{ secrets.ANTHROPIC_API_KEY }}" \
+            MISTRAL_API_KEY="${{ secrets.MISTRAL_API_KEY }}" \
+            GOOGLE_API_KEY="${{ secrets.GOOGLE_API_KEY }}"
 
   close_pull_request_job:
     if: github.event_name == 'pull_request' && github.event.action == 'closed'

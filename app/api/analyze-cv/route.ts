@@ -1,18 +1,22 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { openai } from '@ai-sdk/openai';
 import { anthropic } from '@ai-sdk/anthropic';
-import { mistral } from '@ai-sdk/mistral';
-import { google } from '@ai-sdk/google';
 import { generateText } from 'ai';
 import { config, isProviderAvailable } from '../config';
+import { ModelProvider } from '../../components/ModelSelector';
 
 export const maxDuration = 60; // Allow up to 60 seconds for processing
 
 export async function POST(req: NextRequest) {
   try {
-    const { pdfText, checklistText, analysisType, modelProvider, modelName } = await req.json();
+    const formData = await req.formData();
+    const pdfFile = formData.get('file') as File;
+    const checklistText = formData.get('checklistText') as string;
+    const analysisType = formData.get('analysisType') as string;
+    const modelProvider = formData.get('modelProvider') as ModelProvider;
+    const modelName = formData.get('modelName') as string;
 
-    if (!pdfText || !checklistText) {
+    if (!pdfFile || !checklistText) {
       return NextResponse.json(
         { error: 'Missing required parameters' },
         { status: 400 }
@@ -27,13 +31,17 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // Create prompt based on the analysis type
-    let prompt = '';
-    if (analysisType === 'summary') {
-      prompt = `Analyze the CV summary in the following CV content and evaluate it against the CV writing recommendations in the checklist:
+    // Check if provider supports PDF input
+    if (modelProvider !== 'openai' && modelProvider !== 'anthropic') {
+      return NextResponse.json(
+        { error: 'Selected model provider does not support PDF analysis' },
+        { status: 400 }
+      );
+    }
 
-CV Content:
-${pdfText}
+    // Create the prompt for the analysis
+    const promptText = analysisType === 'summary'
+      ? `Analyze the CV summary in this PDF and evaluate it against the CV writing recommendations in the checklist below:
 
 Checklist:
 ${checklistText}
@@ -47,12 +55,8 @@ Format your response as follows:
 [Your analysis of the summary here, highlighting strengths and weaknesses]
 
 ## Improved Version:
-[Your improved version of the summary]`;
-    } else if (analysisType === 'assignments') {
-      prompt = `Analyze the Key Assignments descriptions in the following CV content and evaluate them against the CV writing recommendations in the checklist:
-
-CV Content:
-${pdfText}
+[Your improved version of the summary]`
+      : `Analyze the Key Assignments descriptions in this PDF and evaluate them against the CV writing recommendations in the checklist below:
 
 Checklist:
 ${checklistText}
@@ -73,7 +77,10 @@ For each assignment, include:
 
 ### Improved Version:
 [Improved version that follows all the recommendations]`;
-    }
+
+    // Read the file as ArrayBuffer
+    const fileArrayBuffer = await pdfFile.arrayBuffer();
+    const fileBuffer = Buffer.from(fileArrayBuffer);
 
     // Configure the provider
     let model;
@@ -88,16 +95,6 @@ For each assignment, include:
         process.env.ANTHROPIC_API_KEY = config.anthropic.apiKey;
         model = anthropic(modelName);
         break;
-      case 'mistral':
-        // Set Mistral API key in environment before creating model
-        process.env.MISTRAL_API_KEY = config.mistral.apiKey;
-        model = mistral(modelName);
-        break;
-      case 'google':
-        // Set Google API key in environment before creating model
-        process.env.GOOGLE_API_KEY = config.google.apiKey;
-        model = google(modelName);
-        break;
       default:
         return NextResponse.json(
           { error: 'Invalid model provider' },
@@ -105,10 +102,26 @@ For each assignment, include:
         );
     }
 
-    // Generate text using the AI SDK
+    // Generate text using the AI SDK with PDF attachment
     const { text } = await generateText({
       model,
-      prompt,
+      messages: [
+        {
+          role: 'user',
+          content: [
+            {
+              type: 'text',
+              text: promptText,
+            },
+            {
+              type: 'file',
+              data: fileBuffer,
+              mimeType: 'application/pdf',
+              filename: pdfFile.name,
+            },
+          ],
+        },
+      ],
       temperature: 0.7,
       maxTokens: 4000,
     });

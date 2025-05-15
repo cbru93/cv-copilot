@@ -7,31 +7,36 @@ export type ModelOption = {
   provider: ModelProvider;
   model: string;
   displayName: string;
+  supportsPDF?: boolean;
 };
 
 const modelOptions: ModelOption[] = [
-  { provider: 'openai', model: 'gpt-4o', displayName: 'OpenAI GPT-4o' },
-  { provider: 'openai', model: 'gpt-3.5-turbo', displayName: 'OpenAI GPT-3.5 Turbo' },
-  { provider: 'anthropic', model: 'claude-3-opus-20240229', displayName: 'Anthropic Claude 3 Opus' },
-  { provider: 'anthropic', model: 'claude-3-sonnet-20240229', displayName: 'Anthropic Claude 3 Sonnet' },
-  { provider: 'anthropic', model: 'claude-3-haiku-20240307', displayName: 'Anthropic Claude 3 Haiku' },
-  { provider: 'mistral', model: 'mistral-large-latest', displayName: 'Mistral Large' },
-  { provider: 'mistral', model: 'mistral-medium-latest', displayName: 'Mistral Medium' },
-  { provider: 'mistral', model: 'mistral-small-latest', displayName: 'Mistral Small' },
-  { provider: 'google', model: 'gemini-1.5-pro', displayName: 'Google Gemini 1.5 Pro' },
+  { provider: 'openai', model: 'gpt-4o', displayName: 'OpenAI GPT-4o', supportsPDF: true },
+  { provider: 'openai', model: 'o4-mini', displayName: 'OpenAI o4-mini Reasoning', supportsPDF: true },
+  { provider: 'anthropic', model: 'claude-3-7-sonnet-20250219', displayName: 'Anthropic Claude 3.7 Sonnet', supportsPDF: true },
+  { provider: 'anthropic', model: 'claude-3-5-sonnet-20241022', displayName: 'Anthropic Claude 3.5 Sonnet', supportsPDF: true },
+  { provider: 'mistral', model: 'mistral-large-latest', displayName: 'Mistral Large', supportsPDF: false },
+  { provider: 'mistral', model: 'mistral-medium-latest', displayName: 'Mistral Medium', supportsPDF: false },
+  { provider: 'mistral', model: 'mistral-small-latest', displayName: 'Mistral Small', supportsPDF: false },
+  { provider: 'google', model: 'gemini-1.5-pro', displayName: 'Google Gemini 1.5 Pro', supportsPDF: false },
 ];
+
+// Filter models to include only those that support PDF
+export const pdfSupportedModels = modelOptions.filter(model => model.supportsPDF);
 
 interface ModelSelectorProps {
   onModelSelect: (modelOption: ModelOption) => void;
+  pdfOnly?: boolean;
 }
 
-export default function ModelSelector({ onModelSelect }: ModelSelectorProps) {
-  const [selectedModel, setSelectedModel] = useState<ModelOption>(modelOptions[0]);
+export default function ModelSelector({ onModelSelect, pdfOnly = true }: ModelSelectorProps) {
+  const availableModels = pdfOnly ? pdfSupportedModels : modelOptions;
+  const [selectedModel, setSelectedModel] = useState<ModelOption>(availableModels[0]);
 
   const handleModelChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
     const value = e.target.value;
     const [provider, model] = value.split('|');
-    const modelOption = modelOptions.find(
+    const modelOption = availableModels.find(
       option => option.provider === provider && option.model === model
     );
     
@@ -52,7 +57,7 @@ export default function ModelSelector({ onModelSelect }: ModelSelectorProps) {
         onChange={handleModelChange}
         className="w-full p-2 border border-gray-300 rounded-md"
       >
-        {modelOptions.map((option) => (
+        {availableModels.map((option) => (
           <option 
             key={`${option.provider}-${option.model}`} 
             value={`${option.provider}|${option.model}`}
@@ -61,6 +66,11 @@ export default function ModelSelector({ onModelSelect }: ModelSelectorProps) {
           </option>
         ))}
       </select>
+      {pdfOnly && (
+        <p className="text-xs text-gray-500 mt-1">
+          Only showing models that support PDF analysis
+        </p>
+      )}
     </div>
   );
 } 
