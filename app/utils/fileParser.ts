@@ -1,25 +1,3 @@
-export async function parsePDF(file: File): Promise<string> {
-  try {
-    const formData = new FormData();
-    formData.append('file', file);
-
-    const response = await fetch('/api/parse-pdf', {
-      method: 'POST',
-      body: formData,
-    });
-
-    if (!response.ok) {
-      throw new Error('Failed to parse PDF file');
-    }
-
-    const data = await response.json();
-    return data.text;
-  } catch (error) {
-    console.error('Error parsing PDF:', error);
-    throw new Error('Failed to parse PDF file');
-  }
-}
-
 export async function parseTextFile(file: File): Promise<string> {
   try {
     const text = await file.text();
