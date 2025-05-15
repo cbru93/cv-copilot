@@ -222,12 +222,14 @@ export async function POST(req: NextRequest) {
     });
 
     // Generate text using the AI SDK with PDF attachment
-    const result = await generateText({
-      model,
-      messages: [
-        {
-          role: 'system',
-          content: `You are an expert CV Evaluator Agent. Your task is to thoroughly analyze a CV and provide detailed feedback.
+    let result;
+    try {
+      result = await generateText({
+        model,
+        messages: [
+          {
+            role: 'system',
+            content: `You are an expert CV Evaluator Agent. Your task is to thoroughly analyze a CV and provide detailed feedback.
 
 STEP-BY-STEP PROCESS:
 1. Read and understand the CV contents completely
@@ -251,27 +253,38 @@ EVALUATION CRITERIA CHECKLIST:
 ${checklistText}
 
 Be specific, detailed, and constructive in your feedback. Provide actionable suggestions that would help improve the CV.`
+          },
+          {
+            role: 'user',
+            content: [
+              {
+                type: 'text',
+                text: 'Please evaluate this CV thoroughly using the agent tools. Analyze each evaluation criterion and provide a comprehensive assessment with specific feedback.',
+              },
+              {
+                type: 'file',
+                data: fileBuffer,
+                mimeType: 'application/pdf',
+                filename: pdfFile.name,
+              }
+            ],
+          }
+        ],
+        tools: criteriaTools,
+        toolChoice: 'required', // Force the model to use tools
+        maxSteps: 10, // Allow multiple steps for the agent to complete its work
+      });
+    } catch (error) {
+      console.error('Error during OpenAI/model API call:', error);
+      return NextResponse.json(
+        { 
+          error: 'Error communicating with AI model API',
+          details: error instanceof Error ? error.message : 'Unknown model API error',
+          timestamp: new Date().toISOString()
         },
-        {
-          role: 'user',
-          content: [
-            {
-              type: 'text',
-              text: 'Please evaluate this CV thoroughly using the agent tools. Analyze each evaluation criterion and provide a comprehensive assessment with specific feedback.',
-            },
-            {
-              type: 'file',
-              data: fileBuffer,
-              mimeType: 'application/pdf',
-              filename: pdfFile.name,
-            }
-          ],
-        }
-      ],
-      tools: criteriaTools,
-      toolChoice: 'required', // Force the model to use tools
-      maxSteps: 10, // Allow multiple steps for the agent to complete its work
-    });
+        { status: 500 }
+      );
+    }
 
     // Safely access the tool calls
     const toolCalls = result.toolCalls || [];
@@ -315,8 +328,18 @@ Be specific, detailed, and constructive in your feedback. Provide actionable sug
     });
   } catch (error) {
     console.error('Error processing agent-based CV evaluation:', error);
+    
+    // Ensure we always return a proper JSON response with details 
+    const errorMessage = error instanceof Error 
+      ? error.message 
+      : 'Unknown error during CV evaluation';
+      
     return NextResponse.json(
-      { error: 'Error processing CV evaluation' },
+      { 
+        error: 'Error processing CV evaluation',
+        details: errorMessage,
+        timestamp: new Date().toISOString()
+      },
       { status: 500 }
     );
   }

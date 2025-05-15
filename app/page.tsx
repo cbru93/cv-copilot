@@ -89,11 +89,15 @@ export default function Home() {
       });
 
       if (!response.ok) {
-        const errorData = await response.json();
+        const errorData = await response.json().catch(e => ({ 
+          error: `Failed to parse error response: ${response.status} ${response.statusText}` 
+        }));
         throw new Error(errorData.error || `Failed to analyze CV: ${response.status} ${response.statusText}`);
       }
 
-      const data = await response.json();
+      const data = await response.json().catch(e => {
+        throw new Error(`Failed to parse response data: ${e.message}`);
+      });
       
       // Different endpoints return different structures
       if (analysisType === 'agent_evaluation') {
