@@ -107,7 +107,7 @@ export default function Home() {
             Improve your CV with AI-powered analysis based on company guidelines. Upload your CV, select an analysis type, and get personalized recommendations.
           </Paragraph>
           <Button 
-            variant="secondary"
+            variant="primary"
             onClick={() => setShowDesignSystem(!showDesignSystem)}
             className="mt-4"
           >
