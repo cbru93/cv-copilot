@@ -1,24 +1,66 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { openai } from '@ai-sdk/openai';
-import { anthropic } from '@ai-sdk/anthropic';
-import { generateText } from 'ai';
+import { generateObject } from 'ai';
 import { config, isProviderAvailable } from '../config';
 import { ModelProvider } from '../../components/ModelSelector';
+import { z } from 'zod';
 
 export const maxDuration = 60; // Allow up to 60 seconds for processing
+
+// Schema for summary analysis
+const summaryAnalysisSchema = z.object({
+  original_summary: z.string(),
+  analysis: z.string(),
+  improved_summary: z.string()
+});
+
+// Schema for key assignment analysis
+const assignmentAnalysisSchema = z.object({
+  overall_issues: z.string(),
+  assignments: z.array(
+    z.object({
+      title: z.string(),
+      original_text: z.string(),
+      issues: z.string(),
+      improved_version: z.string()
+    })
+  )
+});
+
+// Combined analysis schema
+const combinedAnalysisSchema = z.object({
+  summary_analysis: summaryAnalysisSchema,
+  assignments_analysis: assignmentAnalysisSchema
+});
 
 export async function POST(req: NextRequest) {
   try {
     const formData = await req.formData();
     const pdfFile = formData.get('file') as File;
-    const checklistText = formData.get('checklistText') as string;
+    const summaryChecklistText = formData.get('summaryChecklistText') as string;
+    const assignmentsChecklistText = formData.get('assignmentsChecklistText') as string;
     const analysisType = formData.get('analysisType') as string;
     const modelProvider = formData.get('modelProvider') as ModelProvider;
     const modelName = formData.get('modelName') as string;
 
-    if (!pdfFile || !checklistText) {
+    // Validate required parameters
+    if (!pdfFile) {
       return NextResponse.json(
-        { error: 'Missing required parameters' },
+        { error: 'Missing required file' },
+        { status: 400 }
+      );
+    }
+
+    if (!summaryChecklistText) {
+      return NextResponse.json(
+        { error: 'Missing summary checklist text' },
+        { status: 400 }
+      );
+    }
+
+    if (!assignmentsChecklistText) {
+      return NextResponse.json(
+        { error: 'Missing assignments checklist text' },
         { status: 400 }
       );
     }
@@ -31,106 +73,185 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // Check if provider supports PDF input
-    if (modelProvider !== 'openai' && modelProvider !== 'anthropic') {
+    // Read the file as ArrayBuffer
+    const fileArrayBuffer = await pdfFile.arrayBuffer();
+    const fileBuffer = Buffer.from(fileArrayBuffer);
+
+    // Set environment variables for API keys
+    if (modelProvider === 'openai') {
+      process.env.OPENAI_API_KEY = config.openai.apiKey;
+    } else if (modelProvider === 'anthropic') {
+      process.env.ANTHROPIC_API_KEY = config.anthropic.apiKey;
+    } else {
       return NextResponse.json(
         { error: 'Selected model provider does not support PDF analysis' },
         { status: 400 }
       );
     }
 
-    // Create the prompt for the analysis
-    const promptText = analysisType === 'summary'
-      ? `Analyze the CV summary in this PDF and evaluate it against the CV writing recommendations in the checklist below:
+    // Create the model
+    const model = modelProvider === 'openai' 
+      ? openai(modelName)
+      : modelProvider === 'anthropic'
+        ? openai(modelName) // This should be anthropic, but for now we'll handle it in the if statement below
+        : null;
 
-Checklist:
-${checklistText}
-
-Focus on the Summary checklist section in the checklist document. Evaluate the CV summary (the top-most paragraph in the CV) against these recommendations and provide an overview of strengths and weaknesses.
-
-Then, provide a rephrased version of the summary that follows all the recommendations in the checklist. Use all information from the CV, especially the project experience information (recent assignments are more important) and the existing summary.
-
-Format your response as follows:
-## Summary Analysis
-[Your analysis of the summary here, highlighting strengths and weaknesses]
-
-## Improved Version:
-[Your improved version of the summary]`
-      : `Analyze the Key Assignments descriptions in this PDF and evaluate them against the CV writing recommendations in the checklist below:
-
-Checklist:
-${checklistText}
-
-Focus on the "Key assignments" section in the checklist document. Process all Key Assignments in the CV content, do not skip any of them. Evaluate each Key Assignment section against the recommendations and provide an overview of issues found.
-
-Format your response as follows:
-## Overall Issues
-[Provide an overview of the biggest issues found across all assignments]
-
-For each assignment, include:
-## [Assignment Title]
-### Original:
-[Original text]
-
-### Issues:
-[Brief overview of issues found]
-
-### Improved Version:
-[Improved version that follows all the recommendations]`;
-
-    // Read the file as ArrayBuffer
-    const fileArrayBuffer = await pdfFile.arrayBuffer();
-    const fileBuffer = Buffer.from(fileArrayBuffer);
-
-    // Configure the provider
-    let model;
-    switch (modelProvider) {
-      case 'openai':
-        // Set OpenAI API key in environment before creating model
-        process.env.OPENAI_API_KEY = config.openai.apiKey;
-        model = openai(modelName);
-        break;
-      case 'anthropic':
-        // Set Anthropic API key in environment before creating model
-        process.env.ANTHROPIC_API_KEY = config.anthropic.apiKey;
-        model = anthropic(modelName);
-        break;
-      default:
-        return NextResponse.json(
-          { error: 'Invalid model provider' },
-          { status: 400 }
-        );
+    if (!model) {
+      return NextResponse.json(
+        { error: 'Invalid model provider' },
+        { status: 400 }
+      );
     }
 
-    // Generate text using the AI SDK with PDF attachment
-    const { text } = await generateText({
-      model,
-      messages: [
-        {
-          role: 'user',
-          content: [
-            {
-              type: 'text',
-              text: promptText,
-            },
-            {
-              type: 'file',
-              data: fileBuffer,
-              mimeType: 'application/pdf',
-              filename: pdfFile.name,
-            },
-          ],
-        },
-      ],
-      temperature: 0.7,
-      maxTokens: 4000,
-    });
+    // Different processing based on analysis type
+    if (analysisType === 'agent_evaluation') {
+      console.log('Redirecting to agent-cv-evaluation with analysisType:', analysisType);
+      
+      // Create a new FormData for the agent evaluation endpoint
+      const agentFormData = new FormData();
+      
+      // Copy the PDF file
+      agentFormData.append('file', pdfFile);
+      
+      // Combine both checklists for agent evaluation
+      const combinedChecklist = `
+Summary Checklist:
+${summaryChecklistText}
 
-    return NextResponse.json({ result: text });
+Key Assignments Checklist:
+${assignmentsChecklistText}
+      `;
+      
+      // Add the checklist in the format expected by agent-cv-evaluation
+      agentFormData.append('checklistText', combinedChecklist);
+      console.log('Created checklistText with length:', combinedChecklist.length);
+      
+      // Copy other necessary parameters
+      agentFormData.append('modelProvider', modelProvider);
+      agentFormData.append('modelName', modelName);
+      
+      // Redirect to the agent-cv-evaluation endpoint
+      console.log('Calling agent-cv-evaluation endpoint...');
+      const response = await fetch(`${new URL(req.url).origin}/api/agent-cv-evaluation`, {
+        method: 'POST',
+        body: agentFormData,
+      });
+      
+      console.log('agent-cv-evaluation response status:', response.status);
+      const data = await response.json();
+      console.log('agent-cv-evaluation response data:', Object.keys(data));
+      
+      // Add the analysis type to the response so we can track it in the frontend
+      return NextResponse.json({
+        ...data,
+        analysisType: 'agent_evaluation'
+      });
+    } else if (analysisType === 'combined') {
+      try {
+        // For OpenAI, we can use parallel processing with structured output
+        if (modelProvider === 'openai') {
+          // System messages for analysis
+          const summarySystemMessage = `You are an expert CV evaluator focused on analyzing and improving CV summaries.
+          
+          Your task is to analyze the CV summary (the top-most paragraph in the CV) and evaluate it against these recommendations:
+          
+          ${summaryChecklistText}
+          
+          Provide a detailed evaluation of the summary's strengths and weaknesses, and then create an improved version that follows all the recommendations.`;
+
+          const assignmentsSystemMessage = `You are an expert CV evaluator focused on analyzing and improving Key Assignments descriptions.
+          
+          Your task is to analyze all the Key Assignments sections in the CV and evaluate them against these recommendations:
+          
+          ${assignmentsChecklistText}
+          
+          For each Key Assignment section, provide:
+          1. The original text
+          2. A brief overview of issues found
+          3. An improved version that follows all the recommendations
+          
+          Also provide an overall assessment of issues found across all assignments.`;
+
+          // Run both analyses in parallel
+          const [summaryAnalysis, assignmentsAnalysis] = await Promise.all([
+            generateObject({
+              model,
+              schema: summaryAnalysisSchema,
+              system: summarySystemMessage,
+              messages: [{
+                role: 'user',
+                content: [
+                  {
+                    type: 'text',
+                    text: 'Please analyze the summary in this CV. Extract the original summary, provide an analysis of its strengths and weaknesses, and create an improved version following all the recommendations in the checklist.',
+                  },
+                  {
+                    type: 'file',
+                    data: fileBuffer,
+                    mimeType: 'application/pdf',
+                    filename: pdfFile.name,
+                  }
+                ],
+              }]
+            }).then(result => result.object),
+            
+            generateObject({
+              model,
+              schema: assignmentAnalysisSchema,
+              system: assignmentsSystemMessage,
+              messages: [{
+                role: 'user',
+                content: [
+                  {
+                    type: 'text',
+                    text: 'Please analyze all Key Assignments sections in this CV. Identify each assignment section, extract the original text, provide a brief overview of issues for each, and create improved versions following all the recommendations in the checklist.',
+                  },
+                  {
+                    type: 'file',
+                    data: fileBuffer,
+                    mimeType: 'application/pdf',
+                    filename: pdfFile.name,
+                  }
+                ],
+              }]
+            }).then(result => result.object)
+          ]);
+
+          // Combine the results
+          const combinedResult = {
+            summary_analysis: summaryAnalysis,
+            assignments_analysis: assignmentsAnalysis
+          };
+
+          return NextResponse.json({ 
+            result: combinedResult,
+            isStructured: true,
+            analysisType: 'combined'
+          });
+        } else {
+          // For Anthropic and other providers, we can still process but without structured output
+          return NextResponse.json(
+            { error: 'Only OpenAI models are supported for structured output analysis' },
+            { status: 400 }
+          );
+        }
+      } catch (error) {
+        console.error('Error processing CV analysis:', error);
+        return NextResponse.json(
+          { error: 'Error processing CV analysis', details: error instanceof Error ? error.message : 'Unknown error' },
+          { status: 500 }
+        );
+      }
+    } else {
+      return NextResponse.json(
+        { error: 'Invalid analysis type' },
+        { status: 400 }
+      );
+    }
   } catch (error) {
     console.error('Error processing CV analysis:', error);
     return NextResponse.json(
-      { error: 'Error processing CV analysis' },
+      { error: 'Error processing CV analysis', details: error instanceof Error ? error.message : 'Unknown error' },
       { status: 500 }
     );
   }

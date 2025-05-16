@@ -1,6 +1,7 @@
 'use client';
 
-import { useState } from 'react';
+import { Select } from '@digdir/designsystemet-react';
+import { useState, useEffect } from 'react';
 
 export type ModelProvider = 'openai' | 'anthropic' | 'mistral' | 'google';
 export type ModelOption = {
@@ -27,11 +28,40 @@ export const pdfSupportedModels = modelOptions.filter(model => model.supportsPDF
 interface ModelSelectorProps {
   onModelSelect: (modelOption: ModelOption) => void;
   pdfOnly?: boolean;
+  defaultProvider?: ModelProvider;
 }
 
-export default function ModelSelector({ onModelSelect, pdfOnly = true }: ModelSelectorProps) {
+export default function ModelSelector({ 
+  onModelSelect, 
+  pdfOnly = true, 
+  defaultProvider 
+}: ModelSelectorProps) {
   const availableModels = pdfOnly ? pdfSupportedModels : modelOptions;
-  const [selectedModel, setSelectedModel] = useState<ModelOption>(availableModels[0]);
+  
+  // Filter by provider if specified
+  const filteredModels = defaultProvider 
+    ? availableModels.filter(model => model.provider === defaultProvider)
+    : availableModels;
+  
+  // Select first model from filtered list or first available if none match
+  const initialModel = filteredModels.length > 0 
+    ? filteredModels[0] 
+    : availableModels[0];
+  
+  const [selectedModel, setSelectedModel] = useState<ModelOption>(initialModel);
+
+  // Update selected model when defaultProvider changes
+  useEffect(() => {
+    if (defaultProvider) {
+      const providerModels = availableModels.filter(
+        model => model.provider === defaultProvider
+      );
+      if (providerModels.length > 0) {
+        setSelectedModel(providerModels[0]);
+        onModelSelect(providerModels[0]);
+      }
+    }
+  }, [defaultProvider, availableModels, onModelSelect]);
 
   const handleModelChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
     const value = e.target.value;
@@ -51,13 +81,13 @@ export default function ModelSelector({ onModelSelect, pdfOnly = true }: ModelSe
       <label htmlFor="model-selector" className="block text-sm font-medium">
         Select AI Model
       </label>
-      <select
+      <Select
         id="model-selector"
         value={`${selectedModel.provider}|${selectedModel.model}`}
         onChange={handleModelChange}
         className="w-full p-2 border border-gray-300 rounded-md"
       >
-        {availableModels.map((option) => (
+        {(defaultProvider ? filteredModels : availableModels).map((option) => (
           <option 
             key={`${option.provider}-${option.model}`} 
             value={`${option.provider}|${option.model}`}
@@ -65,10 +95,11 @@ export default function ModelSelector({ onModelSelect, pdfOnly = true }: ModelSe
             {option.displayName}
           </option>
         ))}
-      </select>
+      </Select>
       {pdfOnly && (
         <p className="text-xs text-gray-500 mt-1">
           Only showing models that support PDF analysis
+          {defaultProvider && ` for ${defaultProvider}`}
         </p>
       )}
     </div>

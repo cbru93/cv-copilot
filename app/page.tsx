@@ -3,9 +3,8 @@
 import { useState } from 'react';
 import FileUpload from './components/FileUpload';
 import ModelSelector, { ModelOption } from './components/ModelSelector';
-import AnalysisResults from './components/AnalysisResults';
-import { defaultChecklistContent } from './utils/fileParser';
-import DesignSystemTest from './components/DesignSystemTest';
+import AnalysisResults, { AnalysisType } from './components/AnalysisResults';
+import { defaultSummaryChecklist, defaultAssignmentsChecklist } from './utils/checklistData';
 import { 
   Heading, 
   Button, 
@@ -17,41 +16,50 @@ import {
   Divider,
   Label,
   Switch,
-  Tag
+  Tag,
+  Textarea,
+  Checkbox
 } from '@digdir/designsystemet-react';
+
+// Define the type for analysis type
+// type AnalysisType = 'combined' | 'agent_evaluation';
 
 export default function Home() {
   const [cvFile, setCvFile] = useState<File | null>(null);
-  const [checklistText, setChecklistText] = useState<string>(defaultChecklistContent);
+  const [summaryChecklistText, setSummaryChecklistText] = useState<string>(defaultSummaryChecklist);
+  const [assignmentsChecklistText, setAssignmentsChecklistText] = useState<string>(defaultAssignmentsChecklist);
   const [selectedModel, setSelectedModel] = useState<ModelOption>({
     provider: 'openai',
     model: 'gpt-4o',
     displayName: 'OpenAI GPT-4o'
   });
-  const [analysisType, setAnalysisType] = useState<'summary' | 'assignments' | 'agent_evaluation'>('summary');
-  const [result, setResult] = useState<string>('');
+  const [analysisTypes, setAnalysisTypes] = useState<AnalysisType[]>(['combined', 'agent_evaluation']);
+  const [result, setResult] = useState<any>({});
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
   const [showDesignSystem, setShowDesignSystem] = useState<boolean>(false);
+  const [editingChecklist, setEditingChecklist] = useState<boolean>(false);
+  const [activeChecklist, setActiveChecklist] = useState<'summary' | 'assignments'>('summary');
 
   const handleCVUpload = (file: File) => {
     setError(null);
     setCvFile(file);
   };
 
-  const handleChecklistUpload = async (file: File) => {
-    try {
-      setError(null);
-      const text = await file.text();
-      setChecklistText(text);
-    } catch (err) {
-      setError('Failed to parse checklist file. Please make sure it is a valid text file.');
-      console.error(err);
-    }
+  const handleAnalysisTypeToggle = (type: AnalysisType) => {
+    setAnalysisTypes(prev => {
+      if (prev.includes(type)) {
+        // Don't allow unchecking if it would result in no analysis types selected
+        if (prev.length === 1) return prev;
+        return prev.filter(t => t !== type);
+      } else {
+        return [...prev, type];
+      }
+    });
   };
 
-  const handleAnalysisTypeChange = (type: 'summary' | 'assignments' | 'agent_evaluation') => {
-    setAnalysisType(type);
+  const handleChecklistTypeChange = (type: 'summary' | 'assignments') => {
+    setActiveChecklist(type);
   };
 
   const handleAnalyze = async () => {
@@ -60,117 +68,120 @@ export default function Home() {
       return;
     }
 
-    // Check if selected model provider supports PDF
-    if (selectedModel.provider !== 'openai' && selectedModel.provider !== 'anthropic') {
-      setError('Selected model provider does not support PDF analysis. Please choose OpenAI or Anthropic.');
-      return;
-    }
-
     try {
       setIsLoading(true);
       setError(null);
-      setResult('');
+      setResult({});
 
-      const formData = new FormData();
-      formData.append('file', cvFile);
-      formData.append('checklistText', checklistText);
-      formData.append('analysisType', analysisType);
-      formData.append('modelProvider', selectedModel.provider);
-      formData.append('modelName', selectedModel.model);
+      const combinedResults: any = {};
 
-      // Choose the appropriate endpoint based on analysis type
-      const endpoint = analysisType === 'agent_evaluation' 
-        ? '/api/agent-cv-evaluation' 
-        : '/api/analyze-cv';
-
-      console.log(`Calling ${endpoint} with model: ${selectedModel.provider}/${selectedModel.model}`);
-      
-      const response = await fetch(endpoint, {
-        method: 'POST',
-        body: formData,
-      });
-
-      // If the response is not OK
-      if (!response.ok) {
-        let errorData;
+      // Run each selected analysis type
+      for (const analysisType of analysisTypes) {
+        console.log(`Starting analysis for type: ${analysisType}`);
         
-        // Try to parse the error response
-        try {
-          errorData = await response.json();
-          console.log('Server error response:', errorData);
+        const formData = new FormData();
+        formData.append('file', cvFile);
+        formData.append('summaryChecklistText', summaryChecklistText);
+        formData.append('assignmentsChecklistText', assignmentsChecklistText);
+        formData.append('analysisType', analysisType);
+        formData.append('modelProvider', selectedModel.provider);
+        formData.append('modelName', selectedModel.model);
+
+        // Both types now use the same endpoint
+        const endpoint = '/api/analyze-cv';
+
+        console.log(`Calling ${endpoint} with model: ${selectedModel.provider}/${selectedModel.model} for analysis type: ${analysisType}`);
+        
+        const response = await fetch(endpoint, {
+          method: 'POST',
+          body: formData,
+        });
+
+        console.log(`Received response for ${analysisType} with status: ${response.status}`);
+
+        // If the response is not OK
+        if (!response.ok) {
+          let errorData;
           
-          // If we have debug logs, include them in the error message
-          if (errorData.logs && Array.isArray(errorData.logs)) {
-            const errorWithLogs = {
-              error: errorData.error || `Failed to analyze CV: ${response.status}`,
-              details: errorData.details || response.statusText,
-              logs: errorData.logs
-            };
+          // Try to parse the error response
+          try {
+            errorData = await response.json();
+            console.log('Server error response:', errorData);
             
-            // Set the error in a format that the AnalysisResults component can display
-            setResult(JSON.stringify(errorWithLogs));
-            throw new Error(errorData.error || `Failed to analyze CV: ${response.status} ${response.statusText}`);
+            // If we have debug logs, include them in the error message
+            if (errorData.logs && Array.isArray(errorData.logs)) {
+              const errorWithLogs = {
+                error: errorData.error || `Failed to analyze CV: ${response.status}`,
+                details: errorData.details || response.statusText,
+                logs: errorData.logs
+              };
+              
+              // Set the error in a format that the AnalysisResults component can display
+              combinedResults[analysisType] = JSON.stringify(errorWithLogs);
+              throw new Error(errorData.error || `Failed to analyze CV: ${response.status} ${response.statusText}`);
+            }
+          } catch (e: unknown) {
+            // If parsing fails, create a basic error
+            errorData = { 
+              error: `Failed to parse error response: ${response.status} ${response.statusText}` 
+            };
           }
+          
+          throw new Error(errorData.error || `Failed to analyze CV: ${response.status} ${response.statusText}`);
+        }
+
+        // Try to parse the response data
+        let data;
+        try {
+          data = await response.json();
+          console.log(`Server success response for ${analysisType}:`, data);
         } catch (e: unknown) {
-          // If parsing fails, create a basic error
-          errorData = { 
-            error: `Failed to parse error response: ${response.status} ${response.statusText}` 
-          };
+          const errorMessage = e instanceof Error ? e.message : 'Unknown parsing error';
+          throw new Error(`Failed to parse response data: ${errorMessage}`);
         }
         
-        // If we're doing agent evaluation and get a 500 error, provide a more specific message
-        if (analysisType === 'agent_evaluation' && response.status === 500) {
-          const agentErrorMsg = 'The agent-based evaluation is currently experiencing issues in the deployed environment. Please try the "CV Summary" or "Key Assignments" analysis types instead.';
-          setResult(JSON.stringify({ error: agentErrorMsg }));
-          throw new Error(agentErrorMsg);
+        // Store the result for this analysis type
+        combinedResults[analysisType] = data.isStructured ? data.result : data.result;
+        console.log(`Saved result for ${analysisType}:`, combinedResults[analysisType]);
+        
+        // If the response includes information about which analysis was actually performed,
+        // use that instead of what we requested (to handle redirects in the backend)
+        if (data.analysisType && data.analysisType !== analysisType) {
+          console.log(`API returned ${data.analysisType} instead of requested ${analysisType}`);
+          // Move the result to the correct key
+          combinedResults[data.analysisType] = combinedResults[analysisType];
+          delete combinedResults[analysisType];
         }
         
-        throw new Error(errorData.error || `Failed to analyze CV: ${response.status} ${response.statusText}`);
+        // For agent evaluation, we may need to unwrap the result
+        if (analysisType === 'agent_evaluation' || data.analysisType === 'agent_evaluation') {
+          const agentResult = combinedResults['agent_evaluation'];
+          if (agentResult && typeof agentResult === 'object' && 'result' in agentResult) {
+            console.log('Unwrapping nested result for agent evaluation');
+            combinedResults['agent_evaluation'] = agentResult.result;
+          }
+        }
       }
 
-      // Try to parse the response data
-      let data;
-      try {
-        data = await response.json();
-        console.log('Server success response:', data);
-      } catch (e: unknown) {
-        const errorMessage = e instanceof Error ? e.message : 'Unknown parsing error';
-        throw new Error(`Failed to parse response data: ${errorMessage}`);
-      }
-      
-      // Different endpoints return different structures
-      if (analysisType === 'agent_evaluation') {
-        // Check if the result is structured or not (Anthropic vs OpenAI)
-        if (data.isStructured === false) {
-          // For Anthropic, we get plain text
-          setResult(data.result);
-        } else {
-          // For OpenAI, we get structured data
-          setResult(data.result);
-        }
-        
-        // If debug logs are included, log them to console
-        if (data.debug && data.debug.logs) {
-          console.log('Server debug logs:', data.debug.logs);
-        }
-      } else {
-        setResult(data.result);
-      }
+      console.log('All analysis results:', combinedResults);
+      setResult(combinedResults);
     } catch (err) {
       if (err instanceof Error) {
-        if (!result) { // Only set the result if it hasn't been set already
-          setResult(err.message);
+        if (Object.keys(result).length === 0) { // Only set the error if no results were collected
+          setError(err.message);
         }
-        setError(err.message);
       } else {
         const message = 'An error occurred during analysis. Please try again or try a different analysis type.';
-        setResult(message);
         setError(message);
       }
       console.error('Analysis error:', err);
     } finally {
       setIsLoading(false);
     }
+  };
+
+  const toggleChecklistEditing = () => {
+    setEditingChecklist(!editingChecklist);
   };
 
   return (
@@ -181,68 +192,40 @@ export default function Home() {
           <Paragraph data-size="md" className="max-w-3xl mx-auto">
             Improve your CV with AI-powered analysis based on company guidelines. Upload your CV, select an analysis type, and get personalized recommendations.
           </Paragraph>
-          <Button 
-            variant="primary"
-            onClick={() => setShowDesignSystem(!showDesignSystem)}
-            className="mt-4"
-          >
-            {showDesignSystem ? 'Hide' : 'Show'} Design System Components
-          </Button>
         </div>
 
-        {showDesignSystem && (
-          <Card className="mb-8">
-            <Card.Block>
-              <Heading level={2} data-size="sm">Design System Demo</Heading>
-            </Card.Block>
-            <Card.Block>
-              <DesignSystemTest />
-            </Card.Block>
-          </Card>
-        )}
 
         <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
           <Card className="col-span-1">
             <Card.Block>
-              <Heading level={2} data-size="sm">Upload Files</Heading>
+              <Heading level={2} data-size="sm">Upload CV & Configure Analysis</Heading>
             </Card.Block>
             <Card.Block>
               <FileUpload 
                 onCVUpload={handleCVUpload} 
-                onChecklistUpload={handleChecklistUpload} 
+                showChecklistUpload={false}
               />
               
               <Divider data-spacing="true" className="my-4" />
               
               <div className="space-y-4">
-                <ModelSelector onModelSelect={setSelectedModel} />
+                <ModelSelector onModelSelect={setSelectedModel} defaultProvider="openai" />
                 
                 <div className="space-y-2">
-                  <Heading level={3} data-size="xs">Analysis Type</Heading>
+                  <Heading level={3} data-size="xs">Analysis Types</Heading>
                   <div className="flex flex-col space-y-2">
-                    <Radio
-                      name="analysisType"
-                      value="summary"
-                      checked={analysisType === 'summary'}
-                      onChange={() => handleAnalysisTypeChange('summary')}
-                      label="CV Summary"
+                    <Checkbox
+                      checked={analysisTypes.includes('combined')}
+                      onChange={() => handleAnalysisTypeToggle('combined')}
+                      label="Combined Analysis (Summary & Key Assignments)"
                     />
-                    <Radio
-                      name="analysisType"
-                      value="assignments" 
-                      checked={analysisType === 'assignments'}
-                      onChange={() => handleAnalysisTypeChange('assignments')}
-                      label="Key Assignments"
-                    />
-                    <Radio
-                      name="analysisType"
-                      value="agent_evaluation"
-                      checked={analysisType === 'agent_evaluation'}
-                      onChange={() => handleAnalysisTypeChange('agent_evaluation')}
+                    <Checkbox
+                      checked={analysisTypes.includes('agent_evaluation')}
+                      onChange={() => handleAnalysisTypeToggle('agent_evaluation')}
                       label="Agent-based CV Evaluation"
                     />
                     
-                    {analysisType === 'agent_evaluation' && (
+                    {analysisTypes.includes('agent_evaluation') && (
                       <Alert data-color="info" className="mt-2">
                         <Paragraph data-size="xs">
                           <strong>Note:</strong> Agent-based evaluation works best with OpenAI models (GPT-4 recommended). This feature uses multiple AI agents to provide detailed ratings across different CV criteria.
@@ -271,18 +254,68 @@ export default function Home() {
           </Card>
 
           <Card className="col-span-1 md:col-span-2">
-            <Card.Block>
-              <Heading level={2} data-size="sm">Analysis Results</Heading>
+            <Card.Block className="flex justify-between items-center">
+              <Heading level={2} data-size="sm">
+                CV Analysis Results
+              </Heading>
+              {analysisTypes.includes('combined') && (
+                <div className="flex items-center">
+                  <Button 
+                    variant="secondary"
+                    onClick={toggleChecklistEditing}
+                  >
+                    {editingChecklist ? 'Hide Checklist' : 'Edit Checklist'}
+                  </Button>
+                </div>
+              )}
             </Card.Block>
+            
+            {editingChecklist && analysisTypes.includes('combined') && (
+              <Card.Block>
+                <div className="flex mb-4 space-x-4">
+                  <Radio
+                    name="checklistType"
+                    value="summary"
+                    checked={activeChecklist === 'summary'}
+                    onChange={() => handleChecklistTypeChange('summary')}
+                    label="Summary Checklist"
+                  />
+                  <Radio
+                    name="checklistType"
+                    value="assignments"
+                    checked={activeChecklist === 'assignments'}
+                    onChange={() => handleChecklistTypeChange('assignments')}
+                    label="Key Assignments Checklist"
+                  />
+                </div>
+                <Textarea
+                  value={activeChecklist === 'summary' ? summaryChecklistText : assignmentsChecklistText}
+                  onChange={(e) => {
+                    if (activeChecklist === 'summary') {
+                      setSummaryChecklistText(e.target.value);
+                    } else {
+                      setAssignmentsChecklistText(e.target.value);
+                    }
+                  }}
+                  rows={10}
+                  className="w-full my-2"
+                />
+              </Card.Block>
+            )}
+            
             <Card.Block>
-              <AnalysisResults result={result} isLoading={isLoading} />
+              <AnalysisResults 
+                result={result} 
+                isLoading={isLoading} 
+                analysisTypes={analysisTypes}
+              />
             </Card.Block>
           </Card>
         </div>
 
         <div className="mt-10 text-center">
           <Paragraph data-size="xs" data-color="subtle">
-            Built with Next.js and the Vercel AI SDK. Upload your CV and checklist to get started.
+            Built with Next.js and the Vercel AI SDK. Upload your CV to get started.
           </Paragraph>
         </div>
       </div>
