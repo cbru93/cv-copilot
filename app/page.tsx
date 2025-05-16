@@ -4,7 +4,13 @@ import { useState } from 'react';
 import FileUpload from './components/FileUpload';
 import ModelSelector, { ModelOption } from './components/ModelSelector';
 import AnalysisResults, { AnalysisType } from './components/AnalysisResults';
-import { defaultSummaryChecklist, defaultAssignmentsChecklist } from './utils/checklistData';
+import { 
+  summaryChecklists, 
+  assignmentsChecklists, 
+  Checklist,
+  defaultSummaryChecklist, 
+  defaultAssignmentsChecklist 
+} from './utils/checklistData';
 import { 
   Heading, 
   Button, 
@@ -18,7 +24,8 @@ import {
   Switch,
   Tag,
   Textarea,
-  Checkbox
+  Checkbox,
+  Select
 } from '@digdir/designsystemet-react';
 
 // Define the type for analysis type
@@ -28,6 +35,8 @@ export default function Home() {
   const [cvFile, setCvFile] = useState<File | null>(null);
   const [summaryChecklistText, setSummaryChecklistText] = useState<string>(defaultSummaryChecklist);
   const [assignmentsChecklistText, setAssignmentsChecklistText] = useState<string>(defaultAssignmentsChecklist);
+  const [selectedSummaryChecklist, setSelectedSummaryChecklist] = useState<string>('default');
+  const [selectedAssignmentsChecklist, setSelectedAssignmentsChecklist] = useState<string>('default');
   const [selectedModel, setSelectedModel] = useState<ModelOption>({
     provider: 'openai',
     model: 'gpt-4o',
@@ -60,6 +69,22 @@ export default function Home() {
 
   const handleChecklistTypeChange = (type: 'summary' | 'assignments') => {
     setActiveChecklist(type);
+  };
+
+  const handleSummaryChecklistChange = (id: string) => {
+    const checklist = summaryChecklists.find(c => c.id === id);
+    if (checklist) {
+      setSelectedSummaryChecklist(id);
+      setSummaryChecklistText(checklist.content);
+    }
+  };
+
+  const handleAssignmentsChecklistChange = (id: string) => {
+    const checklist = assignmentsChecklists.find(c => c.id === id);
+    if (checklist) {
+      setSelectedAssignmentsChecklist(id);
+      setAssignmentsChecklistText(checklist.content);
+    }
   };
 
   const handleAnalyze = async () => {
@@ -288,6 +313,43 @@ export default function Home() {
                     label="Key Assignments Checklist"
                   />
                 </div>
+                
+                {activeChecklist === 'summary' && (
+                  <div className="mb-4">
+                    <Label htmlFor="summaryChecklistSelect">Select Summary Checklist Template:</Label>
+                    <Select 
+                      id="summaryChecklistSelect"
+                      className="w-full mb-2"
+                      value={selectedSummaryChecklist}
+                      onChange={(e) => handleSummaryChecklistChange(e.target.value)}
+                    >
+                      {summaryChecklists.map(checklist => (
+                        <option key={checklist.id} value={checklist.id}>
+                          {checklist.name}
+                        </option>
+                      ))}
+                    </Select>
+                  </div>
+                )}
+                
+                {activeChecklist === 'assignments' && (
+                  <div className="mb-4">
+                    <Label htmlFor="assignmentsChecklistSelect">Select Assignments Checklist Template:</Label>
+                    <Select 
+                      id="assignmentsChecklistSelect"
+                      className="w-full mb-2"
+                      value={selectedAssignmentsChecklist}
+                      onChange={(e) => handleAssignmentsChecklistChange(e.target.value)}
+                    >
+                      {assignmentsChecklists.map(checklist => (
+                        <option key={checklist.id} value={checklist.id}>
+                          {checklist.name}
+                        </option>
+                      ))}
+                    </Select>
+                  </div>
+                )}
+                
                 <Textarea
                   value={activeChecklist === 'summary' ? summaryChecklistText : assignmentsChecklistText}
                   onChange={(e) => {
