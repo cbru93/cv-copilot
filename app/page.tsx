@@ -4,6 +4,7 @@ import { useState } from 'react';
 import FileUpload from './components/FileUpload';
 import ModelSelector, { ModelOption } from './components/ModelSelector';
 import AnalysisResults, { AnalysisType } from './components/AnalysisResults';
+import StreamingTest from './components/StreamingTest';
 import { 
   summaryChecklists, 
   assignmentsChecklists, 
@@ -49,6 +50,7 @@ export default function Home() {
   const [showDesignSystem, setShowDesignSystem] = useState<boolean>(false);
   const [editingChecklist, setEditingChecklist] = useState<boolean>(false);
   const [activeChecklist, setActiveChecklist] = useState<'summary' | 'assignments'>('summary');
+  const [showStreamingTest, setShowStreamingTest] = useState<boolean>(false);
 
   const handleCVUpload = (file: File) => {
     setError(null);
@@ -217,163 +219,174 @@ export default function Home() {
           <Paragraph data-size="md" className="max-w-3xl mx-auto">
             Improve your CV with AI-powered analysis based on company guidelines. Upload your CV, select an analysis type, and get personalized recommendations.
           </Paragraph>
+          <div className="mt-4">
+            <div id="streaming-test-label" className="text-sm mb-1">Enable Streaming Test</div>
+            <Switch 
+              checked={showStreamingTest}
+              onChange={() => setShowStreamingTest(!showStreamingTest)}
+              aria-labelledby="streaming-test-label"
+            />
+          </div>
         </div>
 
-
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-          <Card className="col-span-1">
-            <Card.Block>
-              <Heading level={2} data-size="sm">Upload CV & Configure Analysis</Heading>
-            </Card.Block>
-            <Card.Block>
-              <FileUpload 
-                onCVUpload={handleCVUpload} 
-                showChecklistUpload={false}
-              />
-              
-              <Divider data-spacing="true" className="my-4" />
-              
-              <div className="space-y-4">
-                <ModelSelector onModelSelect={setSelectedModel} defaultProvider="openai" />
-                
-                <div className="space-y-2">
-                  <Heading level={3} data-size="xs">Analysis Types</Heading>
-                  <div className="flex flex-col space-y-2">
-                    <Checkbox
-                      checked={analysisTypes.includes('combined')}
-                      onChange={() => handleAnalysisTypeToggle('combined')}
-                      label="Combined Analysis (Summary & Key Assignments)"
-                    />
-                    <Checkbox
-                      checked={analysisTypes.includes('agent_evaluation')}
-                      onChange={() => handleAnalysisTypeToggle('agent_evaluation')}
-                      label="Agent-based CV Evaluation"
-                    />
-                    
-                    {analysisTypes.includes('agent_evaluation') && (
-                      <Alert data-color="info" className="mt-2">
-                        <Paragraph data-size="xs">
-                          <strong>Note:</strong> Agent-based evaluation works best with OpenAI models (GPT-4 recommended). This feature uses multiple AI agents to provide detailed ratings across different CV criteria.
-                        </Paragraph>
-                      </Alert>
-                    )}
-                  </div>
-                </div>
-
-                <Button
-                  variant="primary"
-                  onClick={handleAnalyze}
-                  disabled={!cvFile || isLoading}
-                  className="w-full"
-                >
-                  {isLoading ? 'Analyzing...' : 'Analyze'}
-                </Button>
-
-                {error && (
-                  <Alert data-color="danger">
-                    {error}
-                  </Alert>
-                )}
-              </div>
-            </Card.Block>
-          </Card>
-
-          <Card className="col-span-1 md:col-span-2">
-            <Card.Block className="flex justify-between items-center">
-              <Heading level={2} data-size="sm">
-                CV Analysis Results
-              </Heading>
-              {analysisTypes.includes('combined') && (
-                <div className="flex items-center">
-                  <Button 
-                    variant="secondary"
-                    onClick={toggleChecklistEditing}
-                  >
-                    {editingChecklist ? 'Hide Checklist' : 'Edit Checklist'}
-                  </Button>
-                </div>
-              )}
-            </Card.Block>
-            
-            {editingChecklist && analysisTypes.includes('combined') && (
+        {showStreamingTest ? (
+          <StreamingTest />
+        ) : (
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+            <Card className="col-span-1">
               <Card.Block>
-                <div className="flex mb-4 space-x-4">
-                  <Radio
-                    name="checklistType"
-                    value="summary"
-                    checked={activeChecklist === 'summary'}
-                    onChange={() => handleChecklistTypeChange('summary')}
-                    label="Summary Checklist"
-                  />
-                  <Radio
-                    name="checklistType"
-                    value="assignments"
-                    checked={activeChecklist === 'assignments'}
-                    onChange={() => handleChecklistTypeChange('assignments')}
-                    label="Key Assignments Checklist"
-                  />
+                <Heading level={2} data-size="sm">Upload CV & Configure Analysis</Heading>
+              </Card.Block>
+              <Card.Block>
+                <FileUpload 
+                  onCVUpload={handleCVUpload} 
+                  showChecklistUpload={false}
+                />
+                
+                <Divider data-spacing="true" className="my-4" />
+                
+                <div className="space-y-4">
+                  <ModelSelector onModelSelect={setSelectedModel} defaultProvider="openai" />
+                  
+                  <div className="space-y-2">
+                    <Heading level={3} data-size="xs">Analysis Types</Heading>
+                    <div className="flex flex-col space-y-2">
+                      <Checkbox
+                        checked={analysisTypes.includes('combined')}
+                        onChange={() => handleAnalysisTypeToggle('combined')}
+                        label="Combined Analysis (Summary & Key Assignments)"
+                      />
+                      <Checkbox
+                        checked={analysisTypes.includes('agent_evaluation')}
+                        onChange={() => handleAnalysisTypeToggle('agent_evaluation')}
+                        label="Agent-based CV Evaluation"
+                      />
+                      
+                      {analysisTypes.includes('agent_evaluation') && (
+                        <Alert data-color="info" className="mt-2">
+                          <Paragraph data-size="xs">
+                            <strong>Note:</strong> Agent-based evaluation works best with OpenAI models (GPT-4 recommended). This feature uses multiple AI agents to provide detailed ratings across different CV criteria.
+                          </Paragraph>
+                        </Alert>
+                      )}
+                    </div>
+                  </div>
+
+                  <Button
+                    variant="primary"
+                    onClick={handleAnalyze}
+                    disabled={!cvFile || isLoading}
+                    className="w-full"
+                  >
+                    {isLoading ? 'Analyzing...' : 'Analyze'}
+                  </Button>
+
+                  {error && (
+                    <Alert data-color="danger">
+                      {error}
+                    </Alert>
+                  )}
                 </div>
-                
-                {activeChecklist === 'summary' && (
-                  <div className="mb-4">
-                    <Label htmlFor="summaryChecklistSelect">Select Summary Checklist Template:</Label>
-                    <Select 
-                      id="summaryChecklistSelect"
-                      className="w-full mb-2"
-                      value={selectedSummaryChecklist}
-                      onChange={(e) => handleSummaryChecklistChange(e.target.value)}
+              </Card.Block>
+            </Card>
+
+            <Card className="col-span-1 md:col-span-2">
+              <Card.Block className="flex justify-between items-center">
+                <Heading level={2} data-size="sm">
+                  CV Analysis Results
+                </Heading>
+                {analysisTypes.includes('combined') && (
+                  <div className="flex items-center">
+                    <Button 
+                      variant="secondary"
+                      onClick={toggleChecklistEditing}
                     >
-                      {summaryChecklists.map(checklist => (
-                        <option key={checklist.id} value={checklist.id}>
-                          {checklist.name}
-                        </option>
-                      ))}
-                    </Select>
+                      {editingChecklist ? 'Hide Checklist' : 'Edit Checklist'}
+                    </Button>
                   </div>
                 )}
-                
-                {activeChecklist === 'assignments' && (
-                  <div className="mb-4">
-                    <Label htmlFor="assignmentsChecklistSelect">Select Assignments Checklist Template:</Label>
-                    <Select 
-                      id="assignmentsChecklistSelect"
-                      className="w-full mb-2"
-                      value={selectedAssignmentsChecklist}
-                      onChange={(e) => handleAssignmentsChecklistChange(e.target.value)}
-                    >
-                      {assignmentsChecklists.map(checklist => (
-                        <option key={checklist.id} value={checklist.id}>
-                          {checklist.name}
-                        </option>
-                      ))}
-                    </Select>
+              </Card.Block>
+              
+              {editingChecklist && analysisTypes.includes('combined') && (
+                <Card.Block>
+                  <div className="flex mb-4 space-x-4">
+                    <Radio
+                      name="checklistType"
+                      value="summary"
+                      checked={activeChecklist === 'summary'}
+                      onChange={() => handleChecklistTypeChange('summary')}
+                      label="Summary Checklist"
+                    />
+                    <Radio
+                      name="checklistType"
+                      value="assignments"
+                      checked={activeChecklist === 'assignments'}
+                      onChange={() => handleChecklistTypeChange('assignments')}
+                      label="Key Assignments Checklist"
+                    />
                   </div>
-                )}
-                
-                <Textarea
-                  value={activeChecklist === 'summary' ? summaryChecklistText : assignmentsChecklistText}
-                  onChange={(e) => {
-                    if (activeChecklist === 'summary') {
-                      setSummaryChecklistText(e.target.value);
-                    } else {
-                      setAssignmentsChecklistText(e.target.value);
-                    }
-                  }}
-                  rows={10}
-                  className="w-full my-2"
+                  
+                  {activeChecklist === 'summary' && (
+                    <div className="mb-4">
+                      <Label htmlFor="summaryChecklistSelect">Select Summary Checklist Template:</Label>
+                      <Select 
+                        id="summaryChecklistSelect"
+                        className="w-full mb-2"
+                        value={selectedSummaryChecklist}
+                        onChange={(e) => handleSummaryChecklistChange(e.target.value)}
+                      >
+                        {summaryChecklists.map(checklist => (
+                          <option key={checklist.id} value={checklist.id}>
+                            {checklist.name}
+                          </option>
+                        ))}
+                      </Select>
+                    </div>
+                  )}
+                  
+                  {activeChecklist === 'assignments' && (
+                    <div className="mb-4">
+                      <Label htmlFor="assignmentsChecklistSelect">Select Assignments Checklist Template:</Label>
+                      <Select 
+                        id="assignmentsChecklistSelect"
+                        className="w-full mb-2"
+                        value={selectedAssignmentsChecklist}
+                        onChange={(e) => handleAssignmentsChecklistChange(e.target.value)}
+                      >
+                        {assignmentsChecklists.map(checklist => (
+                          <option key={checklist.id} value={checklist.id}>
+                            {checklist.name}
+                          </option>
+                        ))}
+                      </Select>
+                    </div>
+                  )}
+                  
+                  <Textarea
+                    value={activeChecklist === 'summary' ? summaryChecklistText : assignmentsChecklistText}
+                    onChange={(e) => {
+                      if (activeChecklist === 'summary') {
+                        setSummaryChecklistText(e.target.value);
+                      } else {
+                        setAssignmentsChecklistText(e.target.value);
+                      }
+                    }}
+                    rows={10}
+                    className="w-full my-2"
+                  />
+                </Card.Block>
+              )}
+              
+              <Card.Block>
+                <AnalysisResults 
+                  result={result} 
+                  isLoading={isLoading} 
+                  analysisTypes={analysisTypes}
                 />
               </Card.Block>
-            )}
-            
-            <Card.Block>
-              <AnalysisResults 
-                result={result} 
-                isLoading={isLoading} 
-                analysisTypes={analysisTypes}
-              />
-            </Card.Block>
-          </Card>
-        </div>
+            </Card>
+          </div>
+        )}
 
         <div className="mt-10 text-center">
           <Paragraph data-size="xs" data-color="subtle">
