@@ -114,8 +114,13 @@ export default function Home() {
         formData.append('modelProvider', selectedModel.provider);
         formData.append('modelName', selectedModel.model);
 
-        // Both types now use the same endpoint
-        const endpoint = '/api/analyze-cv';
+        // Determine the correct endpoint based on the analysis type
+        let endpoint = '/api/analyze-cv';
+        
+        // Use the specialized endpoint for enhanced agent analysis
+        if (analysisType === 'enhanced_agent') {
+          endpoint = '/api/cv-analysis-agent';
+        }
 
         console.log(`Calling ${endpoint} with model: ${selectedModel.provider}/${selectedModel.model} for analysis type: ${analysisType}`);
         
@@ -232,8 +237,8 @@ export default function Home() {
         {showStreamingTest ? (
           <StreamingTest />
         ) : (
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-            <Card className="col-span-1">
+          <div className="flex flex-col gap-8">
+            <Card>
               <Card.Block>
                 <Heading level={2} data-size="sm">Upload CV & Configure Analysis</Heading>
               </Card.Block>
@@ -261,11 +266,24 @@ export default function Home() {
                         onChange={() => handleAnalysisTypeToggle('agent_evaluation')}
                         label="Agent-based CV Evaluation"
                       />
+                      <Checkbox
+                        checked={analysisTypes.includes('enhanced_agent')}
+                        onChange={() => handleAnalysisTypeToggle('enhanced_agent')}
+                        label="Enhanced Agent Analysis (Specialized Agents)"
+                      />
                       
-                      {analysisTypes.includes('agent_evaluation') && (
+                      {(analysisTypes.includes('agent_evaluation') || analysisTypes.includes('enhanced_agent')) && (
                         <Alert data-color="info" className="mt-2">
                           <Paragraph data-size="xs">
-                            <strong>Note:</strong> Agent-based evaluation works best with OpenAI models (GPT-4 recommended). This feature uses multiple AI agents to provide detailed ratings across different CV criteria.
+                            <strong>Note:</strong> Agent-based evaluations work best with OpenAI models (GPT-4 recommended). These features use specialized AI agents to provide detailed analysis across different CV aspects.
+                          </Paragraph>
+                        </Alert>
+                      )}
+                      
+                      {analysisTypes.includes('enhanced_agent') && selectedModel.provider !== 'openai' && (
+                        <Alert data-color="danger" className="mt-2">
+                          <Paragraph data-size="xs">
+                            <strong>Warning:</strong> Enhanced Agent Analysis currently only supports OpenAI models. Please select an OpenAI model to use this feature.
                           </Paragraph>
                         </Alert>
                       )}
@@ -275,7 +293,7 @@ export default function Home() {
                   <Button
                     variant="primary"
                     onClick={handleAnalyze}
-                    disabled={!cvFile || isLoading}
+                    disabled={!cvFile || isLoading || (analysisTypes.includes('enhanced_agent') && selectedModel.provider !== 'openai')}
                     className="w-full"
                   >
                     {isLoading ? 'Analyzing...' : 'Analyze'}
@@ -290,7 +308,7 @@ export default function Home() {
               </Card.Block>
             </Card>
 
-            <Card className="col-span-1 md:col-span-2">
+            <Card>
               <Card.Block className="flex justify-between items-center">
                 <Heading level={2} data-size="sm">
                   CV Analysis Results
