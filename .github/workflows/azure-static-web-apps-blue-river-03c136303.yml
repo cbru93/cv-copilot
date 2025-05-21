@@ -39,6 +39,15 @@ jobs:
         with:
           creds: ${{ secrets.AZURE_CREDENTIALS }}
       
+      # Add step to debug environment variables
+      - name: Debug Environment Variables
+        run: |
+          echo "OPENAI_API_KEY exists: ${{ secrets.OPENAI_API_KEY != '' }}"
+          echo "ANTHROPIC_API_KEY exists: ${{ secrets.ANTHROPIC_API_KEY != '' }}"
+          echo "MISTRAL_API_KEY exists: ${{ secrets.MISTRAL_API_KEY != '' }}"
+          echo "GOOGLE_API_KEY exists: ${{ secrets.GOOGLE_API_KEY != '' }}"
+          echo "Azure Static Web App name: my-first-static-web-app"
+      
       - name: Set App Settings in Azure Static Web App
         uses: azure/CLI@v1
         with:
@@ -47,7 +56,7 @@ jobs:
             OPENAI_API_KEY="${{ secrets.OPENAI_API_KEY }}" \
             ANTHROPIC_API_KEY="${{ secrets.ANTHROPIC_API_KEY }}" \
             MISTRAL_API_KEY="${{ secrets.MISTRAL_API_KEY }}" \
-            GOOGLE_API_KEY="${{ secrets.GOOGLE_API_KEY }}" \
+            GOOGLE_API_KEY="${{ secrets.GOOGLE_API_KEY }}"
 
   close_pull_request_job:
     if: github.event_name == 'pull_request' && github.event.action == 'closed'
@@ -60,4 +69,4 @@ jobs:
         with:
           azure_static_web_apps_api_token: ${{ secrets.AZURE_STATIC_WEB_APPS_API_TOKEN_BLUE_RIVER_03C136303 }}
           action: "close"
-          app_location: "/"
+
