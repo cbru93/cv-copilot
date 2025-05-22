@@ -619,17 +619,21 @@ export default function AnalysisResults({
         throw new Error('Invalid enhanced agent evaluation result structure');
       }
       
-      // Check if we're using the Azure-optimized format (without detailed_analysis)
-      const isAzureFormat = !agentResult.detailed_analysis && agentResult.criterion_evaluations;
-      console.log(`Using ${isAzureFormat ? 'Azure-optimized' : 'standard'} result format`);
+      // Check if we're using the format without detailed_analysis
+      const isSimplifiedFormat = !agentResult.detailed_analysis;
+      console.log(`Using ${isSimplifiedFormat ? 'simplified' : 'standard'} result format`);
       
-      // Create a compatible detailed_analysis object if using Azure format
+      // Create a compatible detailed_analysis object if using simplified format
       let detailed_analysis = agentResult.detailed_analysis;
-      if (isAzureFormat) {
-        detailed_analysis = agentResult.criterion_evaluations.reduce((acc: any, criterion: any) => {
-          acc[criterion.criterion_id] = criterion;
-          return acc;
-        }, {});
+      if (isSimplifiedFormat) {
+        detailed_analysis = {};
+        // Map criterion_evaluations by criterion_id
+        agentResult.criterion_evaluations.forEach((criterion: any) => {
+          if (criterion.criterion_id) {
+            detailed_analysis[criterion.criterion_id] = criterion;
+          }
+        });
+        console.log('Created detailed_analysis from criterion_evaluations');
       }
 
     return (
@@ -670,42 +674,42 @@ export default function AnalysisResults({
           <Heading level={3} data-size='sm' className="mt-6 mb-3">Specialized Analysis</Heading>
           
           {/* Language Quality */}
-          {(isAzureFormat || detailed_analysis.language_quality) && (
+          {(isSimplifiedFormat || detailed_analysis.language_quality) && (
             <Card>
               <div className="flex justify-between items-center mb-2">
                 <Heading level={4} data-size='xs'>
-                  {isAzureFormat 
+                  {isSimplifiedFormat 
                     ? detailed_analysis.language_quality.criterion_name 
                     : detailed_analysis.language_quality.criterion_name}
                 </Heading>
                 <Tag data-color={
-                  (isAzureFormat 
+                  (isSimplifiedFormat 
                     ? detailed_analysis.language_quality.score 
                     : detailed_analysis.language_quality.score) >= 8 ? 'success' : 
-                  (isAzureFormat 
+                  (isSimplifiedFormat 
                     ? detailed_analysis.language_quality.score 
                     : detailed_analysis.language_quality.score) >= 5 ? 'warning' : 
                   'danger'
                 }>
-                  Score: {(isAzureFormat 
+                  Score: {(isSimplifiedFormat 
                     ? detailed_analysis.language_quality.score 
                     : detailed_analysis.language_quality.score).toFixed(1)}/10
                 </Tag>
               </div>
               
               <Paragraph className="mb-3">
-                {isAzureFormat 
+                {isSimplifiedFormat 
                   ? detailed_analysis.language_quality.reasoning 
                   : detailed_analysis.language_quality.reasoning}
               </Paragraph>
               
-              {(isAzureFormat 
+              {(isSimplifiedFormat 
                 ? detailed_analysis.language_quality.suggestions 
                 : detailed_analysis.language_quality.suggestions).length > 0 && (
                 <div className="bg-blue-50 p-3 rounded-lg mb-3">
                   <Heading level={5} data-size='xs' className="mb-1 text-blue-800">Suggestions</Heading>
                   <ul className="list-disc pl-5 text-sm space-y-1">
-                    {(isAzureFormat 
+                    {(isSimplifiedFormat 
                       ? detailed_analysis.language_quality.suggestions 
                       : detailed_analysis.language_quality.suggestions).map((suggestion: string, idx: number) => (
                       <li key={idx}>{suggestion}</li>
@@ -717,42 +721,42 @@ export default function AnalysisResults({
           )}
           
           {/* Content Completeness */}
-          {(isAzureFormat || detailed_analysis.content_completeness) && (
+          {(isSimplifiedFormat || detailed_analysis.content_completeness) && (
             <Card>
               <div className="flex justify-between items-center mb-2">
                 <Heading level={4} data-size='xs'>
-                  {isAzureFormat 
+                  {isSimplifiedFormat 
                     ? detailed_analysis.content_completeness.criterion_name 
                     : detailed_analysis.content_completeness.criterion_name}
                 </Heading>
                 <Tag data-color={
-                  (isAzureFormat 
+                  (isSimplifiedFormat 
                     ? detailed_analysis.content_completeness.score 
                     : detailed_analysis.content_completeness.score) >= 8 ? 'success' : 
-                  (isAzureFormat 
+                  (isSimplifiedFormat 
                     ? detailed_analysis.content_completeness.score 
                     : detailed_analysis.content_completeness.score) >= 5 ? 'warning' : 
                   'danger'
                 }>
-                  Score: {(isAzureFormat 
+                  Score: {(isSimplifiedFormat 
                     ? detailed_analysis.content_completeness.score 
                     : detailed_analysis.content_completeness.score).toFixed(1)}/10
                 </Tag>
               </div>
               
               <Paragraph className="mb-3">
-                {isAzureFormat 
+                {isSimplifiedFormat 
                   ? detailed_analysis.content_completeness.reasoning 
                   : detailed_analysis.content_completeness.reasoning}
               </Paragraph>
               
-              {(isAzureFormat 
+              {(isSimplifiedFormat 
                 ? detailed_analysis.content_completeness.suggestions 
                 : detailed_analysis.content_completeness.suggestions).length > 0 && (
                 <div className="bg-blue-50 p-3 rounded-lg mb-3">
                   <Heading level={5} data-size='xs' className="mb-1 text-blue-800">Suggestions</Heading>
                   <ul className="list-disc pl-5 text-sm space-y-1">
-                    {(isAzureFormat 
+                    {(isSimplifiedFormat 
                       ? detailed_analysis.content_completeness.suggestions 
                       : detailed_analysis.content_completeness.suggestions).map((suggestion: string, idx: number) => (
                       <li key={idx}>{suggestion}</li>
@@ -761,7 +765,7 @@ export default function AnalysisResults({
                 </div>
               )}
               
-              {!isAzureFormat && detailed_analysis.content_completeness.element_verification && (
+              {!isSimplifiedFormat && detailed_analysis.content_completeness.element_verification && (
                 <div className="mt-3">
                   <Heading level={5} data-size='xs' className="mb-2">Element Verification</Heading>
                   <div className="overflow-x-auto">
@@ -794,42 +798,42 @@ export default function AnalysisResults({
           )}
           
           {/* Summary Quality */}
-          {(isAzureFormat || detailed_analysis.summary_quality) && (
+          {(isSimplifiedFormat || detailed_analysis.summary_quality) && (
             <Card>
               <div className="flex justify-between items-center mb-2">
                 <Heading level={4} data-size='xs'>
-                  {isAzureFormat 
+                  {isSimplifiedFormat 
                     ? detailed_analysis.summary_quality.criterion_name 
                     : detailed_analysis.summary_quality.criterion_name}
                 </Heading>
                 <Tag data-color={
-                  (isAzureFormat 
+                  (isSimplifiedFormat 
                     ? detailed_analysis.summary_quality.score 
                     : detailed_analysis.summary_quality.score) >= 8 ? 'success' : 
-                  (isAzureFormat 
+                  (isSimplifiedFormat 
                     ? detailed_analysis.summary_quality.score 
                     : detailed_analysis.summary_quality.score) >= 5 ? 'warning' : 
                   'danger'
                 }>
-                  Score: {(isAzureFormat 
+                  Score: {(isSimplifiedFormat 
                     ? detailed_analysis.summary_quality.score 
                     : detailed_analysis.summary_quality.score).toFixed(1)}/10
                 </Tag>
               </div>
               
               <Paragraph className="mb-3">
-                {isAzureFormat 
+                {isSimplifiedFormat 
                   ? detailed_analysis.summary_quality.reasoning 
                   : detailed_analysis.summary_quality.reasoning}
               </Paragraph>
               
-              {(isAzureFormat 
+              {(isSimplifiedFormat 
                 ? detailed_analysis.summary_quality.suggestions 
                 : detailed_analysis.summary_quality.suggestions).length > 0 && (
                 <div className="bg-blue-50 p-3 rounded-lg mb-3">
                   <Heading level={5} data-size='xs' className="mb-1 text-blue-800">Suggestions</Heading>
                   <ul className="list-disc pl-5 text-sm space-y-1">
-                    {(isAzureFormat 
+                    {(isSimplifiedFormat 
                       ? detailed_analysis.summary_quality.suggestions 
                       : detailed_analysis.summary_quality.suggestions).map((suggestion: string, idx: number) => (
                       <li key={idx}>{suggestion}</li>
@@ -841,42 +845,42 @@ export default function AnalysisResults({
           )}
           
           {/* Project Descriptions */}
-          {(isAzureFormat || detailed_analysis.project_descriptions) && (
+          {(isSimplifiedFormat || detailed_analysis.project_descriptions) && (
             <Card>
               <div className="flex justify-between items-center mb-2">
                 <Heading level={4} data-size='xs'>
-                  {isAzureFormat 
+                  {isSimplifiedFormat 
                     ? detailed_analysis.project_descriptions.criterion_name 
                     : detailed_analysis.project_descriptions.criterion_name}
                 </Heading>
                 <Tag data-color={
-                  (isAzureFormat 
+                  (isSimplifiedFormat 
                     ? detailed_analysis.project_descriptions.score 
                     : detailed_analysis.project_descriptions.score) >= 8 ? 'success' : 
-                  (isAzureFormat 
+                  (isSimplifiedFormat 
                     ? detailed_analysis.project_descriptions.score 
                     : detailed_analysis.project_descriptions.score) >= 5 ? 'warning' : 
                   'danger'
                 }>
-                  Score: {(isAzureFormat 
+                  Score: {(isSimplifiedFormat 
                     ? detailed_analysis.project_descriptions.score 
                     : detailed_analysis.project_descriptions.score).toFixed(1)}/10
                 </Tag>
               </div>
               
               <Paragraph className="mb-3">
-                {isAzureFormat 
+                {isSimplifiedFormat 
                   ? detailed_analysis.project_descriptions.reasoning 
                   : detailed_analysis.project_descriptions.reasoning}
               </Paragraph>
               
-              {(isAzureFormat 
+              {(isSimplifiedFormat 
                 ? detailed_analysis.project_descriptions.suggestions 
                 : detailed_analysis.project_descriptions.suggestions).length > 0 && (
                 <div className="bg-blue-50 p-3 rounded-lg mb-3">
                   <Heading level={5} data-size='xs' className="mb-1 text-blue-800">General Suggestions</Heading>
                   <ul className="list-disc pl-5 text-sm space-y-1">
-                    {(isAzureFormat 
+                    {(isSimplifiedFormat 
                       ? detailed_analysis.project_descriptions.suggestions 
                       : detailed_analysis.project_descriptions.suggestions).map((suggestion: string, idx: number) => (
                       <li key={idx}>{suggestion}</li>
@@ -886,7 +890,7 @@ export default function AnalysisResults({
               )}
               
               {/* Project Evaluations - only shown in standard mode */}
-              {!isAzureFormat && detailed_analysis.project_descriptions.project_evaluations && (
+              {!isSimplifiedFormat && detailed_analysis.project_descriptions.project_evaluations && (
                 <>
                   <Heading level={5} data-size='xs' className="mt-4 mb-2">Individual Project Evaluations</Heading>
                   
@@ -937,7 +941,7 @@ export default function AnalysisResults({
           )}
           
           {/* Competence Verification - only shown in standard mode */}
-          {!isAzureFormat && detailed_analysis.competence_verification && (
+          {!isSimplifiedFormat && detailed_analysis.competence_verification && (
             <Card>
               <div className="flex justify-between items-center mb-2">
                 <Heading level={4} data-size='xs'>{detailed_analysis.competence_verification.criterion_name}</Heading>

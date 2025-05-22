@@ -74,13 +74,6 @@ const evaluationCriteria = [
   }
 ];
 
-// Simple schema for Azure compatibility
-const simplifiedRatingSchema = z.object({
-  score: z.number().min(0).max(10),
-  reasoning: z.string(),
-  suggestions: z.array(z.string())
-});
-
 // Rating schema - using 0 to 10 scale as requested (instead of 0 to 1)
 const ratingSchema = z.object({
   score: z.number().min(0).max(10),
@@ -136,18 +129,6 @@ const summaryEvaluationSchema = z.object({
   improved_version: z.string()
 });
 
-// Simplified combined evaluation schema for Azure deployment
-const combinedEvaluationSchema = z.object({
-  overall_score: z.number().min(0).max(10),
-  summary: z.string(),
-  key_strengths: z.array(z.string()),
-  key_improvement_areas: z.array(z.string()),
-  language_quality: simplifiedRatingSchema,
-  content_completeness: simplifiedRatingSchema,
-  summary_quality: simplifiedRatingSchema,
-  project_descriptions: simplifiedRatingSchema
-});
-
 export async function POST(req: NextRequest) {
   const logs: string[] = [];
   const startTime = Date.now();
@@ -163,10 +144,10 @@ export async function POST(req: NextRequest) {
       const assignmentsChecklistText = formData.get('assignmentsChecklistText') as string;
       const modelProvider = formData.get('modelProvider') as ModelProvider;
       const modelName = formData.get('modelName') as string;
-      // Check for deployedMode parameter
+      // Check for deployedMode parameter but don't use separate paths
       const deployedMode = formData.get('deployedMode') as string || 
                           (typeof window !== 'undefined' && window.location.hostname.includes('azurestaticapps.net')) ? 
-                          'azure' : 'local';
+                          'azure' : 'standard';
 
       logs.push(logDebug(`Request parameters received`, { 
         fileSize: pdfFile ? pdfFile.size : 'No file',
@@ -250,124 +231,6 @@ export async function POST(req: NextRequest) {
       
       const model = openai(modelName);
       logs.push(logDebug(`Configured OpenAI model: ${modelName}`));
-      
-      // Detect deployment environment - use simplified approach for Azure
-      if (deployedMode === 'azure') {
-        logs.push(logDebug('Using Azure-optimized approach due to deployment environment'));
-        
-        try {
-          // Use a single combined call for Azure deployment
-          const { object: combinedResult } = await generateObject({
-            model,
-            schema: combinedEvaluationSchema,
-            system: `You are an expert CV evaluator. Analyze the CV and provide a comprehensive evaluation covering:
-              
-              1. Language Quality: Evaluate grammar, spelling, flow, professional tone, etc.
-              2. Content Completeness: Check if the CV contains all required elements.
-              3. Summary Quality: Evaluate the CV summary effectiveness.
-              4. Project Descriptions: Evaluate clarity, impact, and structure of project descriptions.
-              
-              For each area, provide:
-              - A rating from 0-10
-              - Brief reasoning for your rating
-              - 2-3 actionable suggestions
-              
-              Also provide:
-              - An overall score (0-10)
-              - A concise summary of your evaluation
-              - 3-5 key strengths
-              - 3-5 key improvement areas
-              
-              CV Guidelines:
-              ${summaryChecklistText}
-              
-              Project Guidelines:
-              ${assignmentsChecklistText}`,
-            messages: [{
-              role: 'user',
-              content: [
-                {
-                  type: 'text',
-                  text: `Please evaluate this CV comprehensively. Provide scores and feedback for language quality, content completeness, summary quality, and project descriptions.`,
-                },
-                {
-                  type: 'file',
-                  data: fileBuffer,
-                  mimeType: 'application/pdf',
-                  filename: pdfFile.name,
-                }
-              ],
-            }]
-          });
-          
-          logs.push(logDebug('Azure-optimized evaluation completed successfully'));
-          
-          // Format the result for the frontend
-          const formattedResult = {
-            overall_score: combinedResult.overall_score,
-            summary: combinedResult.summary,
-            key_strengths: combinedResult.key_strengths,
-            key_improvement_areas: combinedResult.key_improvement_areas,
-            criterion_evaluations: [
-              {
-                criterion_id: 'language_quality',
-                criterion_name: 'Language Quality',
-                score: combinedResult.language_quality.score,
-                reasoning: combinedResult.language_quality.reasoning,
-                suggestions: combinedResult.language_quality.suggestions
-              },
-              {
-                criterion_id: 'content_completeness',
-                criterion_name: 'Content Completeness',
-                score: combinedResult.content_completeness.score,
-                reasoning: combinedResult.content_completeness.reasoning,
-                suggestions: combinedResult.content_completeness.suggestions
-              },
-              {
-                criterion_id: 'summary_quality',
-                criterion_name: 'Summary Quality',
-                score: combinedResult.summary_quality.score,
-                reasoning: combinedResult.summary_quality.reasoning,
-                suggestions: combinedResult.summary_quality.suggestions
-              },
-              {
-                criterion_id: 'project_descriptions',
-                criterion_name: 'Project Descriptions',
-                score: combinedResult.project_descriptions.score,
-                reasoning: combinedResult.project_descriptions.reasoning,
-                suggestions: combinedResult.project_descriptions.suggestions
-              }
-            ]
-          };
-          
-          const timeTaken = (Date.now() - startTime) / 1000;
-          logs.push(logDebug(`Completed Azure-optimized processing in ${timeTaken}s, returning successful response`));
-          
-          return NextResponse.json({ 
-            result: formattedResult,
-            isStructured: true,
-            debug: { logs },
-            timeTaken: `${timeTaken}s`,
-            mode: 'azure-optimized'
-          }, { headers: getAzureFriendlyHeaders() });
-        } catch (azureError) {
-          logs.push(logDebug('Error during Azure-optimized CV analysis:', azureError));
-          return NextResponse.json(
-            { 
-              error: 'Error during Azure-optimized CV analysis',
-              details: azureError instanceof Error ? azureError.message : 'Unknown error during analysis',
-              timestamp: new Date().toISOString(),
-              environment: getEnvironmentInfo(),
-              logs,
-              timeTaken: `${(Date.now() - startTime) / 1000}s`
-            },
-            { status: 500, headers: getAzureFriendlyHeaders() }
-          );
-        }
-      }
-      
-      // Standard approach for local development - using full agent capabilities
-      logs.push(logDebug('Using standard development approach with full agent capabilities'));
       
       // Detect the language of the CV
       logs.push(logDebug('Detecting language of the CV'));
@@ -797,7 +660,7 @@ export async function POST(req: NextRequest) {
           isStructured: true,
           debug: { logs },
           timeTaken: `${timeTaken}s`,
-          mode: 'standard'
+          mode: deployedMode
         }, { headers: getAzureFriendlyHeaders() });
       } catch (error) {
         logs.push(logDebug('Error during agent-based CV analysis:', error));
