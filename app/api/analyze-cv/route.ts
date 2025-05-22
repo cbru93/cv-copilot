@@ -5,7 +5,7 @@ import { config, isProviderAvailable } from '../config';
 import { ModelProvider } from '../../components/ModelSelector';
 import { z } from 'zod';
 
-export const maxDuration = 60; // Allow up to 60 seconds for processing
+export const maxDuration = 230; // Allow up to 230 seconds for processing
 
 // Schema for summary analysis
 const summaryAnalysisSchema = z.object({

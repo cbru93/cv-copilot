@@ -7,7 +7,7 @@ import { ModelProvider } from '../../components/ModelSelector';
 import { z } from 'zod';
 
 // Azure Static Web Apps has a 30-second limit for function execution
-export const maxDuration = 60; // We set to 60 but Azure might enforce a lower limit
+export const maxDuration = 230; // We set to 60 but Azure might enforce a lower limit
 
 // Enhanced logging function with environment info
 function logDebug(message: string, data?: any) {
