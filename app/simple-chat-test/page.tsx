@@ -1,5 +1,6 @@
 'use client';
 
+import { Button, Heading, Paragraph, Textarea } from '@digdir/designsystemet-react';
 import { useState } from 'react';
 
 export default function SimpleChatTest() {
@@ -50,15 +51,15 @@ export default function SimpleChatTest() {
 
   return (
     <div className="container mx-auto p-4 max-w-lg">
-      <h1 className="text-2xl font-bold mb-6">Simple Chat Test</h1>
-      <p className="mb-4 text-gray-600">
+      <Heading data-size="lg" level={1}>Simple Chat Test</Heading>
+      <Paragraph className="mb-4 text-gray-600">
         This is a simple test to verify API functionality without timeouts.
-      </p>
+      </Paragraph>
       
       <form onSubmit={handleSubmit} className="mb-6">
         <div className="mb-4">
           <label htmlFor="message" className="block mb-2">Message:</label>
-          <textarea
+          <Textarea
             id="message"
             value={message}
             onChange={(e) => setMessage(e.target.value)}
@@ -68,31 +69,31 @@ export default function SimpleChatTest() {
           />
         </div>
         
-        <button
+        <Button
           type="submit"
           disabled={loading}
-          className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 disabled:bg-gray-400"
+        //   className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 disabled:bg-gray-400"
         >
           {loading ? 'Sending...' : 'Send Message'}
-        </button>
+        </Button>
       </form>
       
       {error && (
         <div className="mb-4 p-3 bg-red-100 border border-red-400 text-red-700 rounded">
-          <p><strong>Error:</strong> {error}</p>
+          <Paragraph><strong>Error:</strong> {error}</Paragraph>
         </div>
       )}
       
       {timeTaken && (
         <div className="mb-4 text-sm text-gray-500">
-          <p>Time taken: {timeTaken}</p>
+          <Paragraph>Time taken: {timeTaken}</Paragraph>
         </div>
       )}
       
       {response && (
         <div className="p-4 border border-gray-300 rounded bg-gray-50">
-          <h2 className="text-lg font-semibold mb-2">Response:</h2>
-          <p className="whitespace-pre-wrap">{response}</p>
+          <Heading data-size="md" level={2}>Response:</Heading>
+          <Paragraph>{response}</Paragraph>
         </div>
       )}
     </div>

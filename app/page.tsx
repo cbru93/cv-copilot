@@ -101,10 +101,6 @@ export default function Home() {
       setResult({});
 
       const combinedResults: any = {};
-
-      // Detect if running in Azure Static Web Apps
-      const isAzureDeployment = typeof window !== 'undefined' && 
-        window.location.hostname.includes('azurestaticapps.net');
       
       // Run each selected analysis type
       for (const analysisType of analysisTypes) {
@@ -117,12 +113,6 @@ export default function Home() {
         formData.append('analysisType', analysisType);
         formData.append('modelProvider', selectedModel.provider);
         formData.append('modelName', selectedModel.model);
-        
-        // Add deployment mode for Azure optimization
-        if (isAzureDeployment) {
-          formData.append('deployedMode', 'azure');
-          console.log('Running in Azure deployment mode - using optimized approach');
-        }
 
         // Determine the correct endpoint based on the analysis type
         let endpoint = '/api/analyze-cv';
