@@ -6,7 +6,8 @@ import { config, isProviderAvailable } from '../config';
 import { ModelProvider } from '../../components/ModelSelector';
 import { z } from 'zod';
 
-export const maxDuration = 300; // Set to 300 seconds for extensive agent-based analysis
+// Azure Static Web Apps has a 30-second limit for function execution
+export const maxDuration = 60; // We set to 60 but Azure might enforce a lower limit
 
 // Enhanced logging function with environment info
 function logDebug(message: string, data?: any) {
@@ -30,6 +31,17 @@ function getEnvironmentInfo() {
     openaiKeyLength: process.env.OPENAI_API_KEY ? process.env.OPENAI_API_KEY.length : 0,
     anthropicKeyExists: !!process.env.ANTHROPIC_API_KEY,
     maxDuration,
+  };
+}
+
+// Azure-friendly headers for better API response handling
+function getAzureFriendlyHeaders() {
+  return {
+    'Cache-Control': 'no-cache, no-store, must-revalidate',
+    'Content-Type': 'application/json',
+    'Transfer-Encoding': 'chunked', 
+    'Connection': 'keep-alive',
+    'Content-Encoding': 'none'
   };
 }
 
@@ -132,6 +144,10 @@ export async function POST(req: NextRequest) {
       const assignmentsChecklistText = formData.get('assignmentsChecklistText') as string;
       const modelProvider = formData.get('modelProvider') as ModelProvider;
       const modelName = formData.get('modelName') as string;
+      // Check for deployedMode parameter but don't use separate paths
+      const deployedMode = formData.get('deployedMode') as string || 
+                          (typeof window !== 'undefined' && window.location.hostname.includes('azurestaticapps.net')) ? 
+                          'azure' : 'standard';
 
       logs.push(logDebug(`Request parameters received`, { 
         fileSize: pdfFile ? pdfFile.size : 'No file',
@@ -139,14 +155,15 @@ export async function POST(req: NextRequest) {
         modelProvider, 
         modelName,
         summaryChecklistLength: summaryChecklistText ? summaryChecklistText.length : 0,
-        assignmentsChecklistLength: assignmentsChecklistText ? assignmentsChecklistText.length : 0
+        assignmentsChecklistLength: assignmentsChecklistText ? assignmentsChecklistText.length : 0,
+        deployedMode
       }));
 
       if (!pdfFile || !summaryChecklistText || !assignmentsChecklistText) {
         logs.push(logDebug('Missing required parameters'));
         return NextResponse.json(
           { error: 'Missing required parameters', logs },
-          { status: 400 }
+          { status: 400, headers: getAzureFriendlyHeaders() }
         );
       }
 
@@ -160,7 +177,7 @@ export async function POST(req: NextRequest) {
             logs,
             environment: getEnvironmentInfo() 
           },
-          { status: 400 }
+          { status: 400, headers: getAzureFriendlyHeaders() }
         );
       }
       logs.push(logDebug(`Provider ${modelProvider} is available`));
@@ -170,7 +187,7 @@ export async function POST(req: NextRequest) {
         logs.push(logDebug(`Unsupported provider for enhanced agent-based analysis: ${modelProvider}`));
         return NextResponse.json(
           { error: 'Enhanced agent-based analysis currently only supports OpenAI models', logs },
-          { status: 400 }
+          { status: 400, headers: getAzureFriendlyHeaders() }
         );
       }
 
@@ -189,7 +206,7 @@ export async function POST(req: NextRequest) {
             details: fileError instanceof Error ? fileError.message : 'Unknown file processing error',
             logs 
           },
-          { status: 500 }
+          { status: 500, headers: getAzureFriendlyHeaders() }
         );
       }
 
@@ -208,7 +225,7 @@ export async function POST(req: NextRequest) {
             logs, 
             environment: getEnvironmentInfo() 
           },
-          { status: 500 }
+          { status: 500, headers: getAzureFriendlyHeaders() }
         );
       }
       
@@ -254,7 +271,7 @@ export async function POST(req: NextRequest) {
             logs,
             timeTaken: `${(Date.now() - startTime) / 1000}s` 
           },
-          { status: 500 }
+          { status: 500, headers: getAzureFriendlyHeaders() }
         );
       }
       
@@ -642,8 +659,9 @@ export async function POST(req: NextRequest) {
           result,
           isStructured: true,
           debug: { logs },
-          timeTaken: `${timeTaken}s`
-        });
+          timeTaken: `${timeTaken}s`,
+          mode: deployedMode
+        }, { headers: getAzureFriendlyHeaders() });
       } catch (error) {
         logs.push(logDebug('Error during agent-based CV analysis:', error));
         return NextResponse.json(
@@ -655,7 +673,7 @@ export async function POST(req: NextRequest) {
             logs,
             timeTaken: `${(Date.now() - startTime) / 1000}s`
           },
-          { status: 500 }
+          { status: 500, headers: getAzureFriendlyHeaders() }
         );
       }
     } catch (formError) {
@@ -668,7 +686,7 @@ export async function POST(req: NextRequest) {
           environment: getEnvironmentInfo(),
           timeTaken: `${(Date.now() - startTime) / 1000}s` 
         },
-        { status: 500 }
+        { status: 500, headers: getAzureFriendlyHeaders() }
       );
     }
   } catch (error) {
@@ -689,7 +707,7 @@ export async function POST(req: NextRequest) {
         logs,
         timeTaken: `${errorTime}s`
       },
-      { status: 500 }
+      { status: 500, headers: getAzureFriendlyHeaders() }
     );
   }
 } 
