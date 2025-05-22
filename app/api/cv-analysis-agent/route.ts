@@ -1,3 +1,6 @@
+// Set to Edge runtime for better performance
+export const runtime = 'edge';
+
 import { NextRequest, NextResponse } from 'next/server';
 import { openai } from '@ai-sdk/openai';
 import { anthropic } from '@ai-sdk/anthropic';
