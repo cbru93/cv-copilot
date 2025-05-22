@@ -158,6 +158,50 @@ export default function AnalysisResults({
     });
   };
 
+  // Helper function to identify and format improved sections for text results (fallback)
+  const renderFormattedTextResult = (textResult: any) => {
+    if (!textResult || typeof textResult !== 'string') return null;
+
+    // Split the result into sections
+    const sections = textResult.split(/(?=## )/);
+
+    return (
+      <div className="space-y-6">
+        {sections.map((section, index) => {
+          // Skip empty sections
+          if (!section.trim()) return null;
+
+          // Extract the section title
+          const titleMatch = section.match(/^## (.+)/);
+          const title = titleMatch ? titleMatch[1] : `Section ${index + 1}`;
+          
+          // Extract improved version if it exists
+          const improvedVersionMatch = section.match(/### Improved Version:([\s\S]+?)(?=###|$)/);
+          const improvedVersion = improvedVersionMatch 
+            ? improvedVersionMatch[1].trim() 
+            : null;
+
+          return (
+            <Card key={index}>
+              <Heading level={3} className="mb-2">{title}</Heading>
+              <div className="whitespace-pre-wrap text-sm" dangerouslySetInnerHTML={{ __html: section }} />
+              
+              {improvedVersion && (
+                <div className="mt-4">
+                  <Button
+                    onClick={() => copyToClipboard(improvedVersion, title)}
+                  >
+                    {copiedSection === title ? "Copied!" : "Copy Improved Version"}
+                  </Button>
+                </div>
+              )}
+            </Card>
+          );
+        })}
+      </div>
+    );
+  };
+
   // Helper function to check if the result contains an error message
   const isErrorResult = (analysisResult: any): boolean => {
     try {
@@ -304,7 +348,7 @@ export default function AnalysisResults({
         if (hasEnhancedAgentData()) {
           defaultTab = 'enhanced_agent';
         } else if (hasAgentEvaluationData()) {
-          defaultTab = 'agent_evaluation';
+        defaultTab = 'agent_evaluation';
         }
       }
 
@@ -563,8 +607,7 @@ export default function AnalysisResults({
       if (!agentResult.overall_score || !agentResult.summary ||
           !Array.isArray(agentResult.key_strengths) || 
           !Array.isArray(agentResult.key_improvement_areas) ||
-          !Array.isArray(agentResult.criterion_evaluations) ||
-          !agentResult.detailed_analysis) {
+          !Array.isArray(agentResult.criterion_evaluations)) {
         console.log('Invalid enhanced agent evaluation structure. Available keys:', Object.keys(agentResult));
         
         // If we have a result property, it might be wrapped one level deep
@@ -576,8 +619,21 @@ export default function AnalysisResults({
         throw new Error('Invalid enhanced agent evaluation result structure');
       }
       
-      return (
-        <div className="space-y-6">
+      // Check if we're using the Azure-optimized format (without detailed_analysis)
+      const isAzureFormat = !agentResult.detailed_analysis && agentResult.criterion_evaluations;
+      console.log(`Using ${isAzureFormat ? 'Azure-optimized' : 'standard'} result format`);
+      
+      // Create a compatible detailed_analysis object if using Azure format
+      let detailed_analysis = agentResult.detailed_analysis;
+      if (isAzureFormat) {
+        detailed_analysis = agentResult.criterion_evaluations.reduce((acc: any, criterion: any) => {
+          acc[criterion.criterion_id] = criterion;
+          return acc;
+        }, {});
+      }
+
+    return (
+      <div className="space-y-6">
           {/* Overall Rating and Summary */}
           <Card>
             <div className="flex justify-between items-center mb-4">
@@ -614,336 +670,332 @@ export default function AnalysisResults({
           <Heading level={3} data-size='sm' className="mt-6 mb-3">Specialized Analysis</Heading>
           
           {/* Language Quality */}
-          <Card>
-            <div className="flex justify-between items-center mb-2">
-              <Heading level={4} data-size='xs'>{agentResult.detailed_analysis.language_quality.criterion_name}</Heading>
-              <Tag data-color={
-                agentResult.detailed_analysis.language_quality.score >= 8 ? 'success' : 
-                agentResult.detailed_analysis.language_quality.score >= 5 ? 'warning' : 
-                'danger'
-              }>
-                Score: {(agentResult.detailed_analysis.language_quality.score).toFixed(1)}/10
-              </Tag>
-            </div>
-            
-            <Paragraph className="mb-3">{agentResult.detailed_analysis.language_quality.reasoning}</Paragraph>
-            
-            {agentResult.detailed_analysis.language_quality.suggestions.length > 0 && (
-              <div className="bg-blue-50 p-3 rounded-lg mb-3">
-                <Heading level={5} data-size='xs' className="mb-1 text-blue-800">Suggestions</Heading>
-                <ul className="list-disc pl-5 text-sm space-y-1">
-                  {agentResult.detailed_analysis.language_quality.suggestions.map((suggestion: string, idx: number) => (
-                    <li key={idx}>{suggestion}</li>
-                  ))}
-                </ul>
+          {(isAzureFormat || detailed_analysis.language_quality) && (
+            <Card>
+              <div className="flex justify-between items-center mb-2">
+                <Heading level={4} data-size='xs'>
+                  {isAzureFormat 
+                    ? detailed_analysis.language_quality.criterion_name 
+                    : detailed_analysis.language_quality.criterion_name}
+                </Heading>
+                <Tag data-color={
+                  (isAzureFormat 
+                    ? detailed_analysis.language_quality.score 
+                    : detailed_analysis.language_quality.score) >= 8 ? 'success' : 
+                  (isAzureFormat 
+                    ? detailed_analysis.language_quality.score 
+                    : detailed_analysis.language_quality.score) >= 5 ? 'warning' : 
+                  'danger'
+                }>
+                  Score: {(isAzureFormat 
+                    ? detailed_analysis.language_quality.score 
+                    : detailed_analysis.language_quality.score).toFixed(1)}/10
+                </Tag>
               </div>
-            )}
-            
-            {agentResult.detailed_analysis.language_quality.improved_version && (
-              <div className="mt-3">
-                <Heading level={5} data-size='xs' className="mb-1">Sample Improved Text</Heading>
-                <div className="p-3 bg-green-50 border border-green-200 rounded text-sm whitespace-pre-wrap">
-                  {agentResult.detailed_analysis.language_quality.improved_version}
-                </div>
-                <Button
-                  className="mt-2"
-                  onClick={() => copyToClipboard(
-                    agentResult.detailed_analysis.language_quality.improved_version,
-                    'language_quality'
-                  )}
-                >
-                  {copiedSection === 'language_quality' ? "Copied!" : "Copy Improved Text"}
-                </Button>
-              </div>
-            )}
-          </Card>
-          
-          {/* Content Completeness */}
-          <Card>
-            <div className="flex justify-between items-center mb-2">
-              <Heading level={4} data-size='xs'>{agentResult.detailed_analysis.content_completeness.criterion_name}</Heading>
-              <Tag data-color={
-                agentResult.detailed_analysis.content_completeness.score >= 8 ? 'success' : 
-                agentResult.detailed_analysis.content_completeness.score >= 5 ? 'warning' : 
-                'danger'
-              }>
-                Score: {(agentResult.detailed_analysis.content_completeness.score).toFixed(1)}/10
-              </Tag>
-            </div>
-            
-            <Paragraph className="mb-3">{agentResult.detailed_analysis.content_completeness.reasoning}</Paragraph>
-            
-            {agentResult.detailed_analysis.content_completeness.suggestions.length > 0 && (
-              <div className="bg-blue-50 p-3 rounded-lg mb-3">
-                <Heading level={5} data-size='xs' className="mb-1 text-blue-800">Suggestions</Heading>
-                <ul className="list-disc pl-5 text-sm space-y-1">
-                  {agentResult.detailed_analysis.content_completeness.suggestions.map((suggestion: string, idx: number) => (
-                    <li key={idx}>{suggestion}</li>
-                  ))}
-                </ul>
-              </div>
-            )}
-            
-            {agentResult.detailed_analysis.content_completeness.element_verification && (
-              <div className="mt-3">
-                <Heading level={5} data-size='xs' className="mb-2">Element Verification</Heading>
-                <div className="overflow-x-auto">
-                  <table className="min-w-full border border-gray-200 text-sm">
-                    <thead className="bg-gray-50">
-                      <tr>
-                        <th className="px-4 py-2 border-b text-left">Element</th>
-                        <th className="px-4 py-2 border-b text-left">Present</th>
-                        <th className="px-4 py-2 border-b text-left">Comment</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {agentResult.detailed_analysis.content_completeness.element_verification.map((element: any, idx: number) => (
-                        <tr key={idx} className={idx % 2 === 0 ? 'bg-white' : 'bg-gray-50'}>
-                          <td className="px-4 py-2 border-b">{element.element}</td>
-                          <td className="px-4 py-2 border-b">
-                            <span className={element.present ? 'text-green-600' : 'text-red-600'}>
-                              {element.present ? '✓' : '✗'}
-                            </span>
-                          </td>
-                          <td className="px-4 py-2 border-b">{element.comment || '-'}</td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              </div>
-            )}
-          </Card>
-          
-          {/* Summary Quality */}
-          <Card>
-            <div className="flex justify-between items-center mb-2">
-              <Heading level={4} data-size='xs'>{agentResult.detailed_analysis.summary_quality.criterion_name}</Heading>
-              <Tag data-color={
-                agentResult.detailed_analysis.summary_quality.score >= 8 ? 'success' : 
-                agentResult.detailed_analysis.summary_quality.score >= 5 ? 'warning' : 
-                'danger'
-              }>
-                Score: {(agentResult.detailed_analysis.summary_quality.score).toFixed(1)}/10
-              </Tag>
-            </div>
-            
-            <Paragraph className="mb-3">{agentResult.detailed_analysis.summary_quality.reasoning}</Paragraph>
-            
-            {agentResult.detailed_analysis.summary_quality.suggestions.length > 0 && (
-              <div className="bg-blue-50 p-3 rounded-lg mb-3">
-                <Heading level={5} data-size='xs' className="mb-1 text-blue-800">Suggestions</Heading>
-                <ul className="list-disc pl-5 text-sm space-y-1">
-                  {agentResult.detailed_analysis.summary_quality.suggestions.map((suggestion: string, idx: number) => (
-                    <li key={idx}>{suggestion}</li>
-                  ))}
-                </ul>
-              </div>
-            )}
-            
-            <div className="mt-3">
-              <Heading level={5} data-size='xs' className="mb-1">Improved Summary</Heading>
-              <div className="p-3 bg-green-50 border border-green-200 rounded text-sm whitespace-pre-wrap">
-                {agentResult.detailed_analysis.summary_quality.improved_version}
-              </div>
-              <Button
-                className="mt-2"
-                onClick={() => copyToClipboard(
-                  agentResult.detailed_analysis.summary_quality.improved_version,
-                  'summary_quality'
-                )}
-              >
-                {copiedSection === 'summary_quality' ? "Copied!" : "Copy Improved Summary"}
-              </Button>
-            </div>
-          </Card>
-          
-          {/* Project Descriptions */}
-          <Card>
-            <div className="flex justify-between items-center mb-2">
-              <Heading level={4} data-size='xs'>{agentResult.detailed_analysis.project_descriptions.criterion_name}</Heading>
-              <Tag data-color={
-                agentResult.detailed_analysis.project_descriptions.score >= 8 ? 'success' : 
-                agentResult.detailed_analysis.project_descriptions.score >= 5 ? 'warning' : 
-                'danger'
-              }>
-                Score: {(agentResult.detailed_analysis.project_descriptions.score).toFixed(1)}/10
-              </Tag>
-            </div>
-            
-            <Paragraph className="mb-3">{agentResult.detailed_analysis.project_descriptions.reasoning}</Paragraph>
-            
-            {agentResult.detailed_analysis.project_descriptions.suggestions.length > 0 && (
-              <div className="bg-blue-50 p-3 rounded-lg mb-3">
-                <Heading level={5} data-size='xs' className="mb-1 text-blue-800">General Suggestions</Heading>
-                <ul className="list-disc pl-5 text-sm space-y-1">
-                  {agentResult.detailed_analysis.project_descriptions.suggestions.map((suggestion: string, idx: number) => (
-                    <li key={idx}>{suggestion}</li>
-                  ))}
-                </ul>
-              </div>
-            )}
-            
-            {/* Project Evaluations */}
-            <Heading level={5} data-size='xs' className="mt-4 mb-2">Individual Project Evaluations</Heading>
-            
-            {agentResult.detailed_analysis.project_descriptions.project_evaluations.map((project: any, idx: number) => (
-              <div key={idx} className="border rounded-lg p-3 mb-3">
-                <div className="flex justify-between items-center mb-2">
-                  <span className="font-medium">{project.project_name}</span>
-                  <Tag data-color={
-                    project.score >= 8 ? 'success' : 
-                    project.score >= 5 ? 'warning' : 
-                    'danger'
-                  }>
-                    Score: {(project.score).toFixed(1)}/10
-                  </Tag>
-                </div>
-                
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-2 mb-2">
-                  <div>
-                    <span className="text-xs font-bold text-green-700">Strengths:</span>
-                    <ul className="list-disc pl-5 text-xs">
-                      {project.strengths.map((strength: string, i: number) => (
-                        <li key={i}>{strength}</li>
-                      ))}
-                    </ul>
-                  </div>
-                  
-                  <div>
-                    <span className="text-xs font-bold text-red-700">Weaknesses:</span>
-                    <ul className="list-disc pl-5 text-xs">
-                      {project.weaknesses.map((weakness: string, i: number) => (
-                        <li key={i}>{weakness}</li>
-                      ))}
-                    </ul>
-                  </div>
-                </div>
-                
-                {project.improved_version && (
-                  <div className="mt-2">
-                    <div className="text-xs font-medium mb-1">Improved Version:</div>
-                    <div className="p-2 bg-green-50 border border-green-200 rounded text-xs whitespace-pre-wrap">
-                      {project.improved_version}
-                    </div>
-                    <Button
-                      data-size="sm"
-                      className="mt-1"
-                      onClick={() => copyToClipboard(
-                        project.improved_version,
-                        `project_${idx}`
-                      )}
-                    >
-                      {copiedSection === `project_${idx}` ? "Copied!" : "Copy"}
-                    </Button>
-                  </div>
-                )}
-              </div>
-            ))}
-          </Card>
-          
-          {/* Competence Verification */}
-          <Card>
-            <div className="flex justify-between items-center mb-2">
-              <Heading level={4} data-size='xs'>{agentResult.detailed_analysis.competence_verification.criterion_name}</Heading>
-              <Tag data-color={
-                agentResult.detailed_analysis.competence_verification.score >= 8 ? 'success' : 
-                agentResult.detailed_analysis.competence_verification.score >= 5 ? 'warning' : 
-                'danger'
-              }>
-                Score: {(agentResult.detailed_analysis.competence_verification.score).toFixed(1)}/10
-              </Tag>
-            </div>
-            
-            <Paragraph className="mb-3">{agentResult.detailed_analysis.competence_verification.reasoning}</Paragraph>
-            
-            {agentResult.detailed_analysis.competence_verification.suggestions.length > 0 && (
-              <div className="bg-blue-50 p-3 rounded-lg mb-3">
-                <Heading level={5} data-size='xs' className="mb-1 text-blue-800">Suggestions</Heading>
-                <ul className="list-disc pl-5 text-sm space-y-1">
-                  {agentResult.detailed_analysis.competence_verification.suggestions.map((suggestion: string, idx: number) => (
-                    <li key={idx}>{suggestion}</li>
-                  ))}
-                </ul>
-              </div>
-            )}
-            
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-3">
-              {agentResult.detailed_analysis.competence_verification.unverified_competencies && 
-               agentResult.detailed_analysis.competence_verification.unverified_competencies.length > 0 && (
-                <div className="bg-amber-50 p-3 rounded-lg">
-                  <Heading level={5} data-size='xs' className="mb-1 text-amber-800">Unverified Competencies</Heading>
+              
+              <Paragraph className="mb-3">
+                {isAzureFormat 
+                  ? detailed_analysis.language_quality.reasoning 
+                  : detailed_analysis.language_quality.reasoning}
+              </Paragraph>
+              
+              {(isAzureFormat 
+                ? detailed_analysis.language_quality.suggestions 
+                : detailed_analysis.language_quality.suggestions).length > 0 && (
+                <div className="bg-blue-50 p-3 rounded-lg mb-3">
+                  <Heading level={5} data-size='xs' className="mb-1 text-blue-800">Suggestions</Heading>
                   <ul className="list-disc pl-5 text-sm space-y-1">
-                    {agentResult.detailed_analysis.competence_verification.unverified_competencies.map((comp: string, idx: number) => (
-                      <li key={idx}>{comp}</li>
+                    {(isAzureFormat 
+                      ? detailed_analysis.language_quality.suggestions 
+                      : detailed_analysis.language_quality.suggestions).map((suggestion: string, idx: number) => (
+                      <li key={idx}>{suggestion}</li>
                     ))}
                   </ul>
-                </div>
-              )}
-              
-              {agentResult.detailed_analysis.competence_verification.unverified_roles && 
-               agentResult.detailed_analysis.competence_verification.unverified_roles.length > 0 && (
-                <div className="bg-amber-50 p-3 rounded-lg">
-                  <Heading level={5} data-size='xs' className="mb-1 text-amber-800">Unverified Roles</Heading>
-                  <ul className="list-disc pl-5 text-sm space-y-1">
-                    {agentResult.detailed_analysis.competence_verification.unverified_roles.map((role: string, idx: number) => (
-                      <li key={idx}>{role}</li>
-                    ))}
-                  </ul>
-                </div>
-              )}
-            </div>
-          </Card>
-        </div>
-      );
-    } catch (err) {
-      console.error('Error rendering enhanced agent evaluation:', err);
-      return renderFormattedTextResult(agentResult);
-    }
-  };
-
-  // Helper function to identify and format improved sections for text results (fallback)
-  const renderFormattedTextResult = (textResult: any) => {
-    if (!textResult || typeof textResult !== 'string') return null;
-
-    // Split the result into sections
-    const sections = textResult.split(/(?=## )/);
-
-    return (
-      <div className="space-y-6">
-        {sections.map((section, index) => {
-          // Skip empty sections
-          if (!section.trim()) return null;
-
-          // Extract the section title
-          const titleMatch = section.match(/^## (.+)/);
-          const title = titleMatch ? titleMatch[1] : `Section ${index + 1}`;
-          
-          // Extract improved version if it exists
-          const improvedVersionMatch = section.match(/### Improved Version:([\s\S]+?)(?=###|$)/);
-          const improvedVersion = improvedVersionMatch 
-            ? improvedVersionMatch[1].trim() 
-            : null;
-
-          return (
-            <Card key={index}>
-              <Heading level={3} className="mb-2">{title}</Heading>
-              <div className="whitespace-pre-wrap text-sm" dangerouslySetInnerHTML={{ __html: section }} />
-              
-              {improvedVersion && (
-                <div className="mt-4">
-                  <Button
-                    onClick={() => copyToClipboard(improvedVersion, title)}
-                  >
-                    {copiedSection === title ? "Copied!" : "Copy Improved Version"}
-                  </Button>
                 </div>
               )}
             </Card>
-          );
-        })}
+          )}
+          
+          {/* Content Completeness */}
+          {(isAzureFormat || detailed_analysis.content_completeness) && (
+            <Card>
+              <div className="flex justify-between items-center mb-2">
+                <Heading level={4} data-size='xs'>
+                  {isAzureFormat 
+                    ? detailed_analysis.content_completeness.criterion_name 
+                    : detailed_analysis.content_completeness.criterion_name}
+                </Heading>
+                <Tag data-color={
+                  (isAzureFormat 
+                    ? detailed_analysis.content_completeness.score 
+                    : detailed_analysis.content_completeness.score) >= 8 ? 'success' : 
+                  (isAzureFormat 
+                    ? detailed_analysis.content_completeness.score 
+                    : detailed_analysis.content_completeness.score) >= 5 ? 'warning' : 
+                  'danger'
+                }>
+                  Score: {(isAzureFormat 
+                    ? detailed_analysis.content_completeness.score 
+                    : detailed_analysis.content_completeness.score).toFixed(1)}/10
+                </Tag>
+              </div>
+              
+              <Paragraph className="mb-3">
+                {isAzureFormat 
+                  ? detailed_analysis.content_completeness.reasoning 
+                  : detailed_analysis.content_completeness.reasoning}
+              </Paragraph>
+              
+              {(isAzureFormat 
+                ? detailed_analysis.content_completeness.suggestions 
+                : detailed_analysis.content_completeness.suggestions).length > 0 && (
+                <div className="bg-blue-50 p-3 rounded-lg mb-3">
+                  <Heading level={5} data-size='xs' className="mb-1 text-blue-800">Suggestions</Heading>
+                  <ul className="list-disc pl-5 text-sm space-y-1">
+                    {(isAzureFormat 
+                      ? detailed_analysis.content_completeness.suggestions 
+                      : detailed_analysis.content_completeness.suggestions).map((suggestion: string, idx: number) => (
+                      <li key={idx}>{suggestion}</li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+              
+              {!isAzureFormat && detailed_analysis.content_completeness.element_verification && (
+                <div className="mt-3">
+                  <Heading level={5} data-size='xs' className="mb-2">Element Verification</Heading>
+                  <div className="overflow-x-auto">
+                    <table className="min-w-full border border-gray-200 text-sm">
+                      <thead className="bg-gray-50">
+                        <tr>
+                          <th className="px-4 py-2 border-b text-left">Element</th>
+                          <th className="px-4 py-2 border-b text-left">Present</th>
+                          <th className="px-4 py-2 border-b text-left">Comment</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {detailed_analysis.content_completeness.element_verification.map((element: any, idx: number) => (
+                          <tr key={idx} className={idx % 2 === 0 ? 'bg-white' : 'bg-gray-50'}>
+                            <td className="px-4 py-2 border-b">{element.element}</td>
+                            <td className="px-4 py-2 border-b">
+                              <span className={element.present ? 'text-green-600' : 'text-red-600'}>
+                                {element.present ? '✓' : '✗'}
+                              </span>
+                            </td>
+                            <td className="px-4 py-2 border-b">{element.comment || '-'}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              )}
+            </Card>
+          )}
+          
+          {/* Summary Quality */}
+          {(isAzureFormat || detailed_analysis.summary_quality) && (
+            <Card>
+              <div className="flex justify-between items-center mb-2">
+                <Heading level={4} data-size='xs'>
+                  {isAzureFormat 
+                    ? detailed_analysis.summary_quality.criterion_name 
+                    : detailed_analysis.summary_quality.criterion_name}
+                </Heading>
+                <Tag data-color={
+                  (isAzureFormat 
+                    ? detailed_analysis.summary_quality.score 
+                    : detailed_analysis.summary_quality.score) >= 8 ? 'success' : 
+                  (isAzureFormat 
+                    ? detailed_analysis.summary_quality.score 
+                    : detailed_analysis.summary_quality.score) >= 5 ? 'warning' : 
+                  'danger'
+                }>
+                  Score: {(isAzureFormat 
+                    ? detailed_analysis.summary_quality.score 
+                    : detailed_analysis.summary_quality.score).toFixed(1)}/10
+                </Tag>
+              </div>
+              
+              <Paragraph className="mb-3">
+                {isAzureFormat 
+                  ? detailed_analysis.summary_quality.reasoning 
+                  : detailed_analysis.summary_quality.reasoning}
+              </Paragraph>
+              
+              {(isAzureFormat 
+                ? detailed_analysis.summary_quality.suggestions 
+                : detailed_analysis.summary_quality.suggestions).length > 0 && (
+                <div className="bg-blue-50 p-3 rounded-lg mb-3">
+                  <Heading level={5} data-size='xs' className="mb-1 text-blue-800">Suggestions</Heading>
+                  <ul className="list-disc pl-5 text-sm space-y-1">
+                    {(isAzureFormat 
+                      ? detailed_analysis.summary_quality.suggestions 
+                      : detailed_analysis.summary_quality.suggestions).map((suggestion: string, idx: number) => (
+                      <li key={idx}>{suggestion}</li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+            </Card>
+          )}
+          
+          {/* Project Descriptions */}
+          {(isAzureFormat || detailed_analysis.project_descriptions) && (
+            <Card>
+              <div className="flex justify-between items-center mb-2">
+                <Heading level={4} data-size='xs'>
+                  {isAzureFormat 
+                    ? detailed_analysis.project_descriptions.criterion_name 
+                    : detailed_analysis.project_descriptions.criterion_name}
+                </Heading>
+                <Tag data-color={
+                  (isAzureFormat 
+                    ? detailed_analysis.project_descriptions.score 
+                    : detailed_analysis.project_descriptions.score) >= 8 ? 'success' : 
+                  (isAzureFormat 
+                    ? detailed_analysis.project_descriptions.score 
+                    : detailed_analysis.project_descriptions.score) >= 5 ? 'warning' : 
+                  'danger'
+                }>
+                  Score: {(isAzureFormat 
+                    ? detailed_analysis.project_descriptions.score 
+                    : detailed_analysis.project_descriptions.score).toFixed(1)}/10
+                </Tag>
+              </div>
+              
+              <Paragraph className="mb-3">
+                {isAzureFormat 
+                  ? detailed_analysis.project_descriptions.reasoning 
+                  : detailed_analysis.project_descriptions.reasoning}
+              </Paragraph>
+              
+              {(isAzureFormat 
+                ? detailed_analysis.project_descriptions.suggestions 
+                : detailed_analysis.project_descriptions.suggestions).length > 0 && (
+                <div className="bg-blue-50 p-3 rounded-lg mb-3">
+                  <Heading level={5} data-size='xs' className="mb-1 text-blue-800">General Suggestions</Heading>
+                  <ul className="list-disc pl-5 text-sm space-y-1">
+                    {(isAzureFormat 
+                      ? detailed_analysis.project_descriptions.suggestions 
+                      : detailed_analysis.project_descriptions.suggestions).map((suggestion: string, idx: number) => (
+                      <li key={idx}>{suggestion}</li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+              
+              {/* Project Evaluations - only shown in standard mode */}
+              {!isAzureFormat && detailed_analysis.project_descriptions.project_evaluations && (
+                <>
+                  <Heading level={5} data-size='xs' className="mt-4 mb-2">Individual Project Evaluations</Heading>
+                  
+                  {detailed_analysis.project_descriptions.project_evaluations.map((project: any, idx: number) => (
+                    <div key={idx} className="border rounded-lg p-3 mb-3">
+                      <div className="flex justify-between items-center mb-2">
+                        <span className="font-medium">{project.project_name}</span>
+                        <Tag data-color={
+                          project.score >= 8 ? 'success' : 
+                          project.score >= 5 ? 'warning' : 
+                          'danger'
+                        }>
+                          Score: {(project.score).toFixed(1)}/10
+                        </Tag>
+                      </div>
+                      
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-2 mb-2">
+                        <div>
+                          <span className="text-xs font-bold text-green-700">Strengths:</span>
+                          <ul className="list-disc pl-5 text-xs">
+                            {project.strengths.map((strength: string, i: number) => (
+                              <li key={i}>{strength}</li>
+                            ))}
+                          </ul>
+                        </div>
+                        
+                        <div>
+                          <span className="text-xs font-bold text-red-700">Weaknesses:</span>
+                          <ul className="list-disc pl-5 text-xs">
+                            {project.weaknesses.map((weakness: string, i: number) => (
+                              <li key={i}>{weakness}</li>
+                            ))}
+                          </ul>
+                        </div>
+                      </div>
+                      
+                      {project.improved_version && (
+                        <div className="mt-2 p-2 bg-gray-50 rounded text-xs">
+                          <div className="font-bold mb-1">Improved Version:</div>
+                          <div className="whitespace-pre-wrap">{project.improved_version}</div>
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </>
+              )}
+            </Card>
+          )}
+          
+          {/* Competence Verification - only shown in standard mode */}
+          {!isAzureFormat && detailed_analysis.competence_verification && (
+            <Card>
+              <div className="flex justify-between items-center mb-2">
+                <Heading level={4} data-size='xs'>{detailed_analysis.competence_verification.criterion_name}</Heading>
+                <Tag data-color={
+                  detailed_analysis.competence_verification.score >= 8 ? 'success' : 
+                  detailed_analysis.competence_verification.score >= 5 ? 'warning' : 
+                  'danger'
+                }>
+                  Score: {(detailed_analysis.competence_verification.score).toFixed(1)}/10
+                </Tag>
+              </div>
+              
+              <Paragraph className="mb-3">{detailed_analysis.competence_verification.reasoning}</Paragraph>
+              
+              {detailed_analysis.competence_verification.suggestions.length > 0 && (
+                <div className="bg-blue-50 p-3 rounded-lg mb-3">
+                  <Heading level={5} data-size='xs' className="mb-1 text-blue-800">Suggestions</Heading>
+                  <ul className="list-disc pl-5 text-sm space-y-1">
+                    {detailed_analysis.competence_verification.suggestions.map((suggestion: string, idx: number) => (
+                      <li key={idx}>{suggestion}</li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+              
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-3">
+                {detailed_analysis.competence_verification.unverified_competencies && 
+                 detailed_analysis.competence_verification.unverified_competencies.length > 0 && (
+                  <div className="bg-amber-50 p-3 rounded-lg">
+                    <Heading level={5} data-size='xs' className="mb-1 text-amber-800">Unverified Competencies</Heading>
+                    <ul className="list-disc pl-5 text-sm space-y-1">
+                      {detailed_analysis.competence_verification.unverified_competencies.map((comp: string, idx: number) => (
+                        <li key={idx}>{comp}</li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+                
+                {detailed_analysis.competence_verification.unverified_roles && 
+                 detailed_analysis.competence_verification.unverified_roles.length > 0 && (
+                  <div className="bg-amber-50 p-3 rounded-lg">
+                    <Heading level={5} data-size='xs' className="mb-1 text-amber-800">Unverified Roles</Heading>
+                    <ul className="list-disc pl-5 text-sm space-y-1">
+                      {detailed_analysis.competence_verification.unverified_roles.map((role: string, idx: number) => (
+                        <li key={idx}>{role}</li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+              </div>
+            </Card>
+          )}
       </div>
     );
+    } catch (err) {
+      console.error('Error rendering enhanced agent evaluation:', err);
+      return renderFormattedTextResult(JSON.stringify(agentResult, null, 2));
+    }
   };
 
   if (isLoading) {
