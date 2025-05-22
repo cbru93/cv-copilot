@@ -384,10 +384,10 @@ export default function AnalysisResults({
                     </div>
                     
                     <Button 
-                      variant="secondary"
+                      variant="primary"
                       onClick={() => copyToClipboard(summaryResult.original_summary, 'original')}
                     >
-                      {copiedSection === 'original' ? "Copied!" : "Copy Original"}
+                      {copiedSection === 'original' ? "Copied!" : "Copy Original Summary"}
                     </Button>
                   </Card>
                   
@@ -408,7 +408,7 @@ export default function AnalysisResults({
                       data-size='sm'
                       onClick={() => copyToClipboard(summaryResult.improved_summary, 'improved')}
                     >
-                      {copiedSection === 'improved' ? "Copied!" : "Copy Improved Version"}
+                      {copiedSection === 'improved' ? "Copied!" : "Copy Improved Summary"}
                     </Button>
                   </Card>
                 </div>
@@ -839,6 +839,53 @@ export default function AnalysisResults({
                       <li key={idx}>{suggestion}</li>
                     ))}
                   </ul>
+                </div>
+              )}
+
+              {/* Original Summary */}
+              {!isSimplifiedFormat && detailed_analysis.summary_quality.original_summary && (
+                <div className="mb-4">
+                  <Heading level={5} data-size='xs' className="mb-2">Original Summary:</Heading>
+                  <div className="whitespace-pre-wrap text-sm p-3 bg-gray-50 border border-gray-200 rounded-lg">
+                    {detailed_analysis.summary_quality.original_summary}
+                  </div>
+                  <Button 
+                    variant="secondary"
+                    data-size='sm'
+                    className="mt-2"
+                    onClick={() => copyToClipboard(
+                      detailed_analysis.summary_quality.original_summary, 
+                      'enhanced-original-summary'
+                    )}
+                  >
+                    {copiedSection === 'enhanced-original-summary' ? "Copied!" : "Copy Original Summary"}
+                  </Button>
+                </div>
+              )}
+              
+              {/* Improved Summary with Copy Button */}
+              {(isSimplifiedFormat 
+                ? detailed_analysis.summary_quality.improved_version 
+                : detailed_analysis.summary_quality.improved_version) && (
+                <div className="mt-4">
+                  <Heading level={5} data-size='xs' className="mb-2">Improved Summary:</Heading>
+                  <div className="whitespace-pre-wrap text-sm p-3 bg-blue-50 border border-blue-200 rounded-lg mb-3">
+                    {isSimplifiedFormat 
+                      ? detailed_analysis.summary_quality.improved_version 
+                      : detailed_analysis.summary_quality.improved_version}
+                  </div>
+                  
+                  <Button
+                    data-size='sm'
+                    onClick={() => copyToClipboard(
+                      isSimplifiedFormat 
+                        ? detailed_analysis.summary_quality.improved_version 
+                        : detailed_analysis.summary_quality.improved_version, 
+                      'enhanced-summary'
+                    )}
+                  >
+                    {copiedSection === 'enhanced-summary' ? "Copied!" : "Copy Improved Summary"}
+                  </Button>
                 </div>
               )}
             </Card>
