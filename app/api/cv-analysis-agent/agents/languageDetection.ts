@@ -49,10 +49,22 @@ export async function runLanguageDetectionAgent({
       }]
     });
 
-    logDebug(`Language detected: ${languageResult.object.language} (${languageResult.object.languageCode}) with ${languageResult.object.confidence * 100}% confidence`);
-    return languageResult.object;
+    const result: LanguageDetectionResult = {
+      language: languageResult.object.language || 'English',
+      languageCode: languageResult.object.languageCode || 'en',
+      confidence: languageResult.object.confidence || 0.8
+    };
+
+    logDebug(`Language detected: ${result.language} (${result.languageCode}) with ${result.confidence * 100}% confidence`);
+    return result;
   } catch (e) {
     logDebug('Error in language detection:', e);
-    throw new Error(`Language detection agent failed: ${e instanceof Error ? e.message : String(e)}`);
+    
+    // Return default values in case of error
+    return {
+      language: 'English',
+      languageCode: 'en',
+      confidence: 0.5
+    };
   }
 } 
