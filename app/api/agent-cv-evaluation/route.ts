@@ -6,7 +6,7 @@ import { config, isProviderAvailable } from '../config';
 import { ModelProvider } from '../../components/ModelSelector';
 import { z } from 'zod';
 
-export const maxDuration = 60; // Set to 60 seconds for serverless functions
+export const maxDuration = 230; // Set to 60 seconds for serverless functions
 
 // Enhanced logging function that works in production
 function logDebug(message: string, data?: any) {
