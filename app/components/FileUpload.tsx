@@ -35,14 +35,18 @@ export default function FileUpload({
   return (
     <div className="space-y-4">
       <div className="space-y-2">
-        <label className="block text-sm font-medium">
+        <label htmlFor="cv-file-input" className="block text-sm font-medium">
           Upload your CV (PDF)
         </label>
         <input
+          id="cv-file-input"
           type="file"
           accept=".pdf"
           onChange={handleCVChange}
           className="w-full p-2 border border-gray-300 rounded-md"
+          aria-label="Upload your CV file"
+          title="Choose a CV file in PDF format"
+          placeholder="Select CV file"
         />
         {cvFile && (
           <p className="text-sm text-green-600">
@@ -53,14 +57,18 @@ export default function FileUpload({
       
       {showChecklistUpload && onChecklistUpload && (
         <div className="space-y-2">
-          <label className="block text-sm font-medium">
+          <label htmlFor="checklist-file-input" className="block text-sm font-medium">
             Upload CV Checklist (or use default)
           </label>
           <input
+            id="checklist-file-input"
             type="file"
             accept=".txt"
             onChange={handleChecklistChange}
             className="w-full p-2 border border-gray-300 rounded-md"
+            aria-label="Upload CV checklist file"
+            title="Choose a checklist file in TXT format"
+            placeholder="Select checklist file"
           />
           {checklistFile ? (
             <p className="text-sm text-green-600">

@@ -4,7 +4,6 @@ import { useState } from 'react';
 import FileUpload from './components/FileUpload';
 import ModelSelector, { ModelOption } from './components/ModelSelector';
 import AnalysisResults, { AnalysisType } from './components/AnalysisResults';
-import StreamingTest from './components/StreamingTest';
 import { 
   summaryChecklists, 
   assignmentsChecklists, 
@@ -50,7 +49,6 @@ export default function Home() {
   const [showDesignSystem, setShowDesignSystem] = useState<boolean>(false);
   const [editingChecklist, setEditingChecklist] = useState<boolean>(false);
   const [activeChecklist, setActiveChecklist] = useState<'summary' | 'assignments'>('summary');
-  const [showStreamingTest, setShowStreamingTest] = useState<boolean>(false);
 
   const handleCVUpload = (file: File) => {
     setError(null);
@@ -101,10 +99,6 @@ export default function Home() {
       setResult({});
 
       const combinedResults: any = {};
-
-      // Detect if running in Azure Static Web Apps
-      const isAzureDeployment = typeof window !== 'undefined' && 
-        window.location.hostname.includes('azurestaticapps.net');
       
       // Run each selected analysis type
       for (const analysisType of analysisTypes) {
@@ -117,12 +111,6 @@ export default function Home() {
         formData.append('analysisType', analysisType);
         formData.append('modelProvider', selectedModel.provider);
         formData.append('modelName', selectedModel.model);
-        
-        // Add deployment mode for Azure optimization
-        if (isAzureDeployment) {
-          formData.append('deployedMode', 'azure');
-          console.log('Running in Azure deployment mode - using optimized approach');
-        }
 
         // Determine the correct endpoint based on the analysis type
         let endpoint = '/api/analyze-cv';
@@ -203,11 +191,6 @@ export default function Home() {
             combinedResults['agent_evaluation'] = agentResult.result;
           }
         }
-        
-        // Log the deployment mode if available
-        if (data.mode) {
-          console.log(`Analysis performed using ${data.mode} mode`);
-        }
       }
 
       console.log('All analysis results:', combinedResults);
@@ -239,187 +222,175 @@ export default function Home() {
           <Paragraph data-size="md" className="max-w-3xl mx-auto">
             Improve your CV with AI-powered analysis based on company guidelines. Upload your CV, select an analysis type, and get personalized recommendations.
           </Paragraph>
-          <div className="mt-4">
-            <div id="streaming-test-label" className="text-sm mb-1">Enable Streaming Test</div>
-            <Switch 
-              checked={showStreamingTest}
-              onChange={() => setShowStreamingTest(!showStreamingTest)}
-              aria-labelledby="streaming-test-label"
-            />
-          </div>
         </div>
 
-        {showStreamingTest ? (
-          <StreamingTest />
-        ) : (
-          <div className="flex flex-col gap-8">
-            <Card>
-              <Card.Block>
-                <Heading level={2} data-size="sm">Upload CV & Configure Analysis</Heading>
-              </Card.Block>
-              <Card.Block>
-                <FileUpload 
-                  onCVUpload={handleCVUpload} 
-                  showChecklistUpload={false}
-                />
+        <div className="flex flex-col gap-8">
+          <Card>
+            <Card.Block>
+              <Heading level={2} data-size="sm">Upload CV & Configure Analysis</Heading>
+            </Card.Block>
+            <Card.Block>
+              <FileUpload 
+                onCVUpload={handleCVUpload} 
+                showChecklistUpload={false}
+              />
+              
+              <Divider data-spacing="true" className="my-4" />
+              
+              <div className="space-y-4">
+                <ModelSelector onModelSelect={setSelectedModel} defaultProvider="openai" />
                 
-                <Divider data-spacing="true" className="my-4" />
-                
-                <div className="space-y-4">
-                  <ModelSelector onModelSelect={setSelectedModel} defaultProvider="openai" />
-                  
-                  <div className="space-y-2">
-                    <Heading level={3} data-size="xs">Analysis Types</Heading>
-                    <div className="flex flex-col space-y-2">
-                      <Checkbox
-                        checked={analysisTypes.includes('combined')}
-                        onChange={() => handleAnalysisTypeToggle('combined')}
-                        label="Combined Analysis (Summary & Key Assignments)"
-                      />
-                      <Checkbox
-                        checked={analysisTypes.includes('agent_evaluation')}
-                        onChange={() => handleAnalysisTypeToggle('agent_evaluation')}
-                        label="Agent-based CV Evaluation"
-                      />
-                      <Checkbox
-                        checked={analysisTypes.includes('enhanced_agent')}
-                        onChange={() => handleAnalysisTypeToggle('enhanced_agent')}
-                        label="Enhanced Agent Analysis (Specialized Agents)"
-                      />
-                      
-                      {(analysisTypes.includes('agent_evaluation') || analysisTypes.includes('enhanced_agent')) && (
-                        <Alert data-color="info" className="mt-2">
-                          <Paragraph data-size="xs">
-                            <strong>Note:</strong> Agent-based evaluations work best with OpenAI models (GPT-4 recommended). These features use specialized AI agents to provide detailed analysis across different CV aspects.
-                          </Paragraph>
-                        </Alert>
-                      )}
-                      
-                      {analysisTypes.includes('enhanced_agent') && selectedModel.provider !== 'openai' && (
-                        <Alert data-color="danger" className="mt-2">
-                          <Paragraph data-size="xs">
-                            <strong>Warning:</strong> Enhanced Agent Analysis currently only supports OpenAI models. Please select an OpenAI model to use this feature.
-                          </Paragraph>
-                        </Alert>
-                      )}
-                    </div>
+                <div className="space-y-2">
+                  <Heading level={3} data-size="xs">Analysis Types</Heading>
+                  <div className="flex flex-col space-y-2">
+                    <Checkbox
+                      checked={analysisTypes.includes('combined')}
+                      onChange={() => handleAnalysisTypeToggle('combined')}
+                      label="Summary & Key Assignments Analysis"
+                    />
+                    <Checkbox
+                      checked={analysisTypes.includes('agent_evaluation')}
+                      onChange={() => handleAnalysisTypeToggle('agent_evaluation')}
+                      label="Basic CV Evaluation"
+                    />
+                    <Checkbox
+                      checked={analysisTypes.includes('enhanced_agent')}
+                      onChange={() => handleAnalysisTypeToggle('enhanced_agent')}
+                      label="Advanced Agent Analysis"
+                    />
+                    
+                    {(analysisTypes.includes('agent_evaluation') || analysisTypes.includes('enhanced_agent')) && (
+                      <Alert data-color="info" className="mt-2">
+                        <Paragraph data-size="xs">
+                          <strong>Note:</strong> Agent-based evaluations work best with OpenAI models (GPT-4 recommended). These features use specialized AI agents to provide detailed analysis across different CV aspects.
+                        </Paragraph>
+                      </Alert>
+                    )}
+                    
+                    {analysisTypes.includes('enhanced_agent') && selectedModel.provider !== 'openai' && (
+                      <Alert data-color="danger" className="mt-2">
+                        <Paragraph data-size="xs">
+                          <strong>Warning:</strong> Enhanced Agent Analysis currently only supports OpenAI models. Please select an OpenAI model to use this feature.
+                        </Paragraph>
+                      </Alert>
+                    )}
                   </div>
-
-                  <Button
-                    variant="primary"
-                    onClick={handleAnalyze}
-                    disabled={!cvFile || isLoading || (analysisTypes.includes('enhanced_agent') && selectedModel.provider !== 'openai')}
-                    className="w-full"
-                  >
-                    {isLoading ? 'Analyzing...' : 'Analyze'}
-                  </Button>
-
-                  {error && (
-                    <Alert data-color="danger">
-                      {error}
-                    </Alert>
-                  )}
                 </div>
-              </Card.Block>
-            </Card>
 
-            <Card>
-              <Card.Block className="flex justify-between items-center">
-                <Heading level={2} data-size="sm">
-                  CV Analysis Results
-                </Heading>
-                {analysisTypes.includes('combined') && (
-                  <div className="flex items-center">
-                    <Button 
-                      variant="secondary"
-                      onClick={toggleChecklistEditing}
+                <Button
+                  variant="primary"
+                  onClick={handleAnalyze}
+                  disabled={!cvFile || isLoading || (analysisTypes.includes('enhanced_agent') && selectedModel.provider !== 'openai')}
+                  className="w-full"
+                >
+                  {isLoading ? 'Analyzing...' : 'Analyze'}
+                </Button>
+
+                {error && (
+                  <Alert data-color="danger">
+                    {error}
+                  </Alert>
+                )}
+              </div>
+            </Card.Block>
+          </Card>
+
+          <Card>
+            <Card.Block className="flex justify-between items-center">
+              <Heading level={2} data-size="sm">
+                CV Analysis Results
+              </Heading>
+              {analysisTypes.includes('combined') && (
+                <div className="flex items-center">
+                  <Button 
+                    variant="secondary"
+                    onClick={toggleChecklistEditing}
+                  >
+                    {editingChecklist ? 'Hide Checklist' : 'Edit Checklist'}
+                  </Button>
+                </div>
+              )}
+            </Card.Block>
+            
+            {editingChecklist && analysisTypes.includes('combined') && (
+              <Card.Block>
+                <div className="flex mb-4 space-x-4">
+                  <Radio
+                    name="checklistType"
+                    value="summary"
+                    checked={activeChecklist === 'summary'}
+                    onChange={() => handleChecklistTypeChange('summary')}
+                    label="Summary Checklist"
+                  />
+                  <Radio
+                    name="checklistType"
+                    value="assignments"
+                    checked={activeChecklist === 'assignments'}
+                    onChange={() => handleChecklistTypeChange('assignments')}
+                    label="Key Assignments Checklist"
+                  />
+                </div>
+                
+                {activeChecklist === 'summary' && (
+                  <div className="mb-4">
+                    <Label htmlFor="summaryChecklistSelect">Select Summary Checklist Template:</Label>
+                    <Select 
+                      id="summaryChecklistSelect"
+                      className="w-full mb-2"
+                      value={selectedSummaryChecklist}
+                      onChange={(e) => handleSummaryChecklistChange(e.target.value)}
                     >
-                      {editingChecklist ? 'Hide Checklist' : 'Edit Checklist'}
-                    </Button>
+                      {summaryChecklists.map(checklist => (
+                        <option key={checklist.id} value={checklist.id}>
+                          {checklist.name}
+                        </option>
+                      ))}
+                    </Select>
                   </div>
                 )}
-              </Card.Block>
-              
-              {editingChecklist && analysisTypes.includes('combined') && (
-                <Card.Block>
-                  <div className="flex mb-4 space-x-4">
-                    <Radio
-                      name="checklistType"
-                      value="summary"
-                      checked={activeChecklist === 'summary'}
-                      onChange={() => handleChecklistTypeChange('summary')}
-                      label="Summary Checklist"
-                    />
-                    <Radio
-                      name="checklistType"
-                      value="assignments"
-                      checked={activeChecklist === 'assignments'}
-                      onChange={() => handleChecklistTypeChange('assignments')}
-                      label="Key Assignments Checklist"
-                    />
+                
+                {activeChecklist === 'assignments' && (
+                  <div className="mb-4">
+                    <Label htmlFor="assignmentsChecklistSelect">Select Assignments Checklist Template:</Label>
+                    <Select 
+                      id="assignmentsChecklistSelect"
+                      className="w-full mb-2"
+                      value={selectedAssignmentsChecklist}
+                      onChange={(e) => handleAssignmentsChecklistChange(e.target.value)}
+                    >
+                      {assignmentsChecklists.map(checklist => (
+                        <option key={checklist.id} value={checklist.id}>
+                          {checklist.name}
+                        </option>
+                      ))}
+                    </Select>
                   </div>
-                  
-                  {activeChecklist === 'summary' && (
-                    <div className="mb-4">
-                      <Label htmlFor="summaryChecklistSelect">Select Summary Checklist Template:</Label>
-                      <Select 
-                        id="summaryChecklistSelect"
-                        className="w-full mb-2"
-                        value={selectedSummaryChecklist}
-                        onChange={(e) => handleSummaryChecklistChange(e.target.value)}
-                      >
-                        {summaryChecklists.map(checklist => (
-                          <option key={checklist.id} value={checklist.id}>
-                            {checklist.name}
-                          </option>
-                        ))}
-                      </Select>
-                    </div>
-                  )}
-                  
-                  {activeChecklist === 'assignments' && (
-                    <div className="mb-4">
-                      <Label htmlFor="assignmentsChecklistSelect">Select Assignments Checklist Template:</Label>
-                      <Select 
-                        id="assignmentsChecklistSelect"
-                        className="w-full mb-2"
-                        value={selectedAssignmentsChecklist}
-                        onChange={(e) => handleAssignmentsChecklistChange(e.target.value)}
-                      >
-                        {assignmentsChecklists.map(checklist => (
-                          <option key={checklist.id} value={checklist.id}>
-                            {checklist.name}
-                          </option>
-                        ))}
-                      </Select>
-                    </div>
-                  )}
-                  
-                  <Textarea
-                    value={activeChecklist === 'summary' ? summaryChecklistText : assignmentsChecklistText}
-                    onChange={(e) => {
-                      if (activeChecklist === 'summary') {
-                        setSummaryChecklistText(e.target.value);
-                      } else {
-                        setAssignmentsChecklistText(e.target.value);
-                      }
-                    }}
-                    rows={10}
-                    className="w-full my-2"
-                  />
-                </Card.Block>
-              )}
-              
-              <Card.Block>
-                <AnalysisResults 
-                  result={result} 
-                  isLoading={isLoading} 
-                  analysisTypes={analysisTypes}
+                )}
+                
+                <Textarea
+                  value={activeChecklist === 'summary' ? summaryChecklistText : assignmentsChecklistText}
+                  onChange={(e) => {
+                    if (activeChecklist === 'summary') {
+                      setSummaryChecklistText(e.target.value);
+                    } else {
+                      setAssignmentsChecklistText(e.target.value);
+                    }
+                  }}
+                  rows={10}
+                  className="w-full my-2"
                 />
               </Card.Block>
-            </Card>
-          </div>
-        )}
+            )}
+            
+            <Card.Block>
+              <AnalysisResults 
+                result={result} 
+                isLoading={isLoading} 
+                analysisTypes={analysisTypes}
+              />
+            </Card.Block>
+          </Card>
+        </div>
 
         <div className="mt-10 text-center">
           <Paragraph data-size="xs" data-color="subtle">
