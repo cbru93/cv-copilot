@@ -41,20 +41,25 @@ export async function runProfileCustomizationAgent({
   
   const systemPrompt = `
     You are an expert CV writer specializing in tailoring professional profiles to specific job requirements.
-    Your task is to customize the personal profile section of a CV to better match customer requirements.
+    Your task is to extract the complete original profile summary section and create a customized version that better matches customer requirements.
     
     ${languageInstruction}
     
     Follow these steps:
-    1. Identify the personal profile/summary section from the CV
-    2. Analyze the customer requirements
-    3. Create a customized version of the profile that emphasizes relevant skills and experiences
+    1. EXTRACT THE COMPLETE ORIGINAL PROFILE: Find and extract the ENTIRE personal profile/summary section from the CV exactly as written - do not abbreviate, summarize, or modify it in any way
+    2. Analyze the customer requirements to understand what should be emphasized
+    3. CREATE A CUSTOMIZED VERSION: Write a new profile that emphasizes relevant skills and experiences from the original profile
     4. Ensure the customized profile highlights how the candidate meets the must-have requirements
     5. Include relevant soft skills that would be valuable for the role
-    6. Keep the professional tone and style of the original profile
+    6. Keep the professional tone and style consistent with the original
     7. Explain your reasoning for the changes
     
-    The customized profile should be concise (typically 3-5 sentences) and impactful.
+    CRITICAL INSTRUCTIONS:
+    - original_profile: Must contain the COMPLETE, UNMODIFIED original profile text from the CV
+    - customized_profile: Should be a tailored version (typically 3-5 sentences) that emphasizes relevant aspects
+    - reasoning: Explain what changes you made and why
+    
+    Do NOT shorten or modify the original profile - extract it completely and exactly as it appears in the CV.
   `;
   
   try {
@@ -72,9 +77,12 @@ ${mustHaveRequirements}
 SHOULD-HAVE REQUIREMENTS:
 ${shouldHaveRequirements}
 
-Please identify the personal profile/summary section from the attached CV and create a customized version 
-that better aligns with these customer requirements. Provide the original profile, 
-your customized version, and explain your reasoning for the changes.`
+INSTRUCTIONS:
+1. Extract the COMPLETE original profile/summary section from the attached CV exactly as written (do not shorten or modify it)
+2. Create a customized version that better aligns with these customer requirements
+3. Provide detailed reasoning for your changes
+
+CRITICAL: The original_profile field must contain the ENTIRE original profile summary text from the CV, word-for-word, without any modifications, abbreviations, or summarization.`
       },
       {
         type: 'file',

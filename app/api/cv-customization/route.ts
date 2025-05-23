@@ -237,7 +237,9 @@ export async function POST(req: NextRequest) {
             console.log('👤 Profile Customization Results:', {
               originalLength: result.original_profile.length,
               customizedLength: result.customized_profile.length,
-              reasoning: result.reasoning.substring(0, 200) + '...'
+              reasoning: result.reasoning.substring(0, 200) + '...',
+              originalProfilePreview: result.original_profile.substring(0, 200) + '...',
+              customizedProfilePreview: result.customized_profile.substring(0, 200) + '...'
             });
             
             logs.push(logDebug('Profile customization completed'));
