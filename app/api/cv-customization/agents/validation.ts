@@ -80,27 +80,35 @@ export async function runValidationAgent({
     4. VERIFY EVERYTHING: Cross-check every claim in the customized content against the original CV
     5. BE CONSERVATIVE: When in doubt, flag as potentially fabricated
     6. QUOTE EXACTLY: When identifying fabricated or unsupported claims, provide the EXACT text from the customized content
+    7. DISTINGUISH REORGANIZATION FROM FABRICATION: Reorganizing or rephrasing existing information is acceptable; adding new information is not
     
-    CRITICAL: When you identify fabricated_claims or unsupported_claims, you MUST:
+    CRITICAL VALIDATION PROCESS:
+    For each customized section:
+    1. Read through the ENTIRE original CV document to establish the factual baseline
+    2. Compare the customized content word-by-word with ALL content in the original CV
+    3. Only flag as fabricated/unsupported if the information is definitively NOT present in the original CV
+    4. Allow reasonable interpretation and rephrasing of existing information
+    5. Distinguish between reorganization/emphasis changes vs. actual fabrication
+    6. Focus on substance, not style or presentation changes
+    
+    WHEN IDENTIFYING ISSUES:
     - Quote the EXACT text from the customized content that is problematic
     - Be specific about which words or phrases are not supported by the original CV
-    - Only flag content that you can definitively say is not in the original CV
+    - Explain WHY you consider something fabricated (what specific information is missing from the original)
     - Do not flag reasonable interpretations or enhanced presentation of existing information
+    - Do not flag reorganization or rephrasing unless new facts are added
     
-    For each customized section, you must:
-    1. Compare it word-by-word with the original CV content
-    2. Identify any claims not supported by the original CV with EXACT QUOTES
-    3. Flag any exaggerations or embellishments with EXACT QUOTES
-    4. Provide corrections that stay true to the original CV while still being relevant
-    5. Rate your confidence in the validation (0-10 scale)
+    OUTPUT REQUIREMENTS:
+    - corrected_profile: Only provide if corrections are needed, otherwise use empty string ""
+    - corrected_description: Only provide if corrections are needed, otherwise use empty string ""
+    - When corrections are provided, they should maintain the customization intent while ensuring factual accuracy
+    - If no fabricated content is found, clearly state this in your reasoning
     
-    IMPORTANT OUTPUT REQUIREMENTS:
-    - Always provide corrected_profile field: if no correction is needed, provide an empty string ""
-    - Always provide corrected_description field for each project: if no correction is needed, provide an empty string ""
-    - If corrections are needed, provide the improved version that stays factual to the original CV
-    - When listing fabricated_claims or unsupported_claims, use EXACT QUOTES from the customized content
+    IMPORTANT: Be extremely careful to distinguish between:
+    - ACCEPTABLE: Reorganizing, rephrasing, or emphasizing existing information from the CV
+    - UNACCEPTABLE: Adding new information, skills, experiences, or claims not present in the original CV
     
-    Remember: It's better to be too conservative than to allow fabricated content, but be precise about what exactly is fabricated.
+    Your validation should be thorough but fair - don't penalize good customization that stays within factual bounds.
   `;
   
   // Format the customized projects for analysis
@@ -136,13 +144,23 @@ ${customizedCompetencies.map(comp => `- ${comp}`).join('\n')}
 CUSTOMIZED PROJECTS:
 ${projectsText}
 
-Please analyze each section and identify:
-1. Any fabricated information not present in the original CV
-2. Any unsupported claims or exaggerations
-3. Any technologies, skills, or experiences not mentioned in the original CV
-4. Provide corrected versions that stay true to the original CV while maintaining relevance
+VALIDATION INSTRUCTIONS:
+1. Read through the ENTIRE attached CV document to understand all available information
+2. Compare each piece of customized content against the complete original CV
+3. Focus on identifying genuinely fabricated information (not just reorganized or rephrased content)
+4. Remember that the original profile provided above may be extracted/parsed, so check against the full PDF document
+5. Only flag content as fabricated if you cannot find supporting information anywhere in the original CV
+6. Distinguish between:
+   - ACCEPTABLE: Reorganizing, emphasizing, or rephrasing existing information
+   - UNACCEPTABLE: Adding completely new information not present in the original
 
-Be extremely thorough and conservative in your validation.`
+Please analyze each section and identify:
+1. Any genuinely fabricated information not present anywhere in the original CV document
+2. Any claims that significantly exaggerate beyond what's supported in the original
+3. Any technologies, skills, or experiences completely absent from the original CV
+4. Provide corrected versions only if actual fabrication is found
+
+Be thorough but fair - good customization that reorganizes existing information should not be penalized.`
       },
       {
         type: 'file',

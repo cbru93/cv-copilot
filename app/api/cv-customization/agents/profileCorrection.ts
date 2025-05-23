@@ -51,17 +51,24 @@ export async function runProfileCorrectionAgent({
     ${languageInstruction}
     
     CORRECTION PRINCIPLES:
-    1. TARGETED FIXES: Only fix the specific fabricated or unsupported claims identified
-    2. PRESERVE CUSTOMIZATIONS: Keep all valid customizations that improve relevance to customer requirements
-    3. MAINTAIN OPTIMIZATION: The corrected profile should still be optimized for the customer requirements
-    4. FACTUAL ACCURACY: Ensure all information is grounded in the original CV
-    5. BALANCED APPROACH: Don't revert to the original - improve the customized version
+    1. VERIFY VALIDATION ACCURACY: First, re-examine the original CV to confirm if the flagged issues are actually problems
+    2. TARGETED FIXES: Only fix issues that are genuinely fabricated or unsupported by the original CV
+    3. PRESERVE CUSTOMIZATIONS: Keep all valid customizations that improve relevance to customer requirements
+    4. MAINTAIN OPTIMIZATION: The corrected profile should still be optimized for the customer requirements
+    5. FACTUAL ACCURACY: Ensure all information is grounded in the original CV
+    6. BALANCED APPROACH: Don't revert to the original - improve the customized version
+    7. QUESTION FALSE POSITIVES: If validation flagged something that IS in the original CV, preserve it
     
-    PROCESS:
-    1. Identify the specific issues flagged in the validation
-    2. Fix only those issues while keeping valid improvements
-    3. Maintain the enhanced presentation and relevance to customer requirements
-    4. Ensure the result is both factually accurate and well-optimized
+    CORRECTION PROCESS:
+    1. Read the original CV thoroughly to understand what information is actually available
+    2. Review each flagged issue to determine if it's truly fabricated or just reorganized/rephrased
+    3. For genuine issues: Remove or correct the problematic content
+    4. For false positives: Preserve the content and explain why it's actually valid
+    5. Maintain the enhanced presentation and relevance to customer requirements
+    6. Ensure the result is both factually accurate and well-optimized
+    
+    IMPORTANT: Sometimes validation agents can incorrectly flag reorganized or rephrased content as fabricated. 
+    Your job is to make the final determination based on what's actually in the original CV.
   `;
   
   const validationIssues = `

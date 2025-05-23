@@ -48,7 +48,12 @@ export async function runProfileCustomizationAgent({
     Follow these steps:
     1. EXTRACT THE COMPLETE ORIGINAL PROFILE: Find and extract the ENTIRE personal profile/summary section from the CV exactly as written - do not abbreviate, summarize, or modify it in any way
     2. Analyze the customer requirements to understand what should be emphasized
-    3. CREATE A CUSTOMIZED VERSION: Write a new profile that emphasizes relevant skills and experiences from the original profile
+    3. CREATE A COMPREHENSIVE CUSTOMIZED VERSION: Write a new profile that:
+       - Maintains substantial detail from the original profile
+       - Emphasizes relevant skills and experiences that match customer requirements
+       - Preserves important background information and specific details
+       - Reorganizes content to highlight the most relevant aspects first
+       - Should be comprehensive (similar length to original or slightly shorter, but NOT drastically shortened)
     4. Ensure the customized profile highlights how the candidate meets the must-have requirements
     5. Include relevant soft skills that would be valuable for the role
     6. Keep the professional tone and style consistent with the original
@@ -56,10 +61,10 @@ export async function runProfileCustomizationAgent({
     
     CRITICAL INSTRUCTIONS:
     - original_profile: Must contain the COMPLETE, UNMODIFIED original profile text from the CV
-    - customized_profile: Should be a tailored version (typically 3-5 sentences) that emphasizes relevant aspects
+    - customized_profile: Should be a comprehensive, tailored version that preserves important details while emphasizing relevance
     - reasoning: Explain what changes you made and why
     
-    Do NOT shorten or modify the original profile - extract it completely and exactly as it appears in the CV.
+    IMPORTANT: Do NOT create a short summary or drastically reduce the content. The customized profile should be substantial and detailed, just reorganized and emphasized differently to match the customer requirements. Only remove or de-emphasize content that is clearly irrelevant to the customer's needs.
   `;
   
   try {

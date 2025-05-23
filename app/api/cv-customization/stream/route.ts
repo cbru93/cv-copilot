@@ -238,13 +238,17 @@ export async function POST(req: NextRequest) {
             
             // Steps 2-4: Run customizations in parallel
             controller.enqueue(encoder.encode(createProgressUpdate(
-              'customization', 'starting', 'Customizing CV profile, competencies, and projects...', null, 50
+              'customization', 'starting', 'Starting parallel customization of profile, competencies, and projects...', null, 50
             )));
             
             const [customizedProfile, customizedCompetencies, customizedProjects] = await Promise.all([
               // Profile customization
               (async () => {
                 console.log('👤 Starting profile customization...');
+                controller.enqueue(encoder.encode(createProgressUpdate(
+                  'profile_customization', 'starting', 'Customizing CV profile summary...', null, 52
+                )));
+                
                 const result = await runProfileCustomizationAgent({
                   model,
                   cvBuffer,
@@ -262,7 +266,7 @@ export async function POST(req: NextRequest) {
                 });
                 
                 controller.enqueue(encoder.encode(createProgressUpdate(
-                  'profile_customization', 'completed', 'CV profile customization completed', null, 60
+                  'profile_customization', 'completed', 'CV profile customization completed successfully', null, 60
                 )));
                 
                 return result;
@@ -271,6 +275,10 @@ export async function POST(req: NextRequest) {
               // Competencies customization
               (async () => {
                 console.log('🎯 Starting competencies customization...');
+                controller.enqueue(encoder.encode(createProgressUpdate(
+                  'competencies_customization', 'starting', 'Analyzing and selecting relevant competencies...', null, 54
+                )));
+                
                 const result = await runCompetenciesCustomizationAgent({
                   model,
                   cvBuffer,
@@ -300,6 +308,10 @@ export async function POST(req: NextRequest) {
               // Projects customization
               (async () => {
                 console.log('📁 Starting projects customization...');
+                controller.enqueue(encoder.encode(createProgressUpdate(
+                  'projects_customization', 'starting', 'Customizing project descriptions using PARC method...', null, 56
+                )));
+                
                 const result = await runProjectsCustomizationAgent({
                   model,
                   cvBuffer,
@@ -320,7 +332,7 @@ export async function POST(req: NextRequest) {
                 
                 controller.enqueue(encoder.encode(createProgressUpdate(
                   'projects_customization', 'completed', 
-                  `Customized ${result.length} project descriptions`, 
+                  `Customized ${result.length} project descriptions with PARC analysis`, 
                   { projectsCount: result.length }, 
                   70
                 )));

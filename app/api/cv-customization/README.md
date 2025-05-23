@@ -235,4 +235,78 @@ const response = await fetch('/api/cv-customization', {
 });
 
 const data = await response.json();
+```
+
+## Recent Improvements
+
+### Profile Length Preservation
+- **Enhanced Profile Customization**: The system now preserves more detail from the original profile while still customizing for relevance
+- **No Unnecessary Shortening**: Profiles are no longer drastically shortened unless content is genuinely irrelevant
+- **Comprehensive Customization**: Maintains substantial detail while reorganizing to emphasize relevant aspects first
+
+### Improved Validation Accuracy
+- **Better Fabrication Detection**: More accurate at distinguishing between reorganized content vs. genuinely fabricated information
+- **Reduced False Positives**: Less likely to flag reorganized or rephrased content as fabricated
+- **Thorough Document Analysis**: Validation now checks against the complete original CV document
+- **Enhanced Correction Logic**: Correction agents now verify validation findings before making changes
+
+### Enhanced Debugging
+- **Profile Length Tracking**: Detailed logging of profile length changes throughout the process
+- **Correction Application Monitoring**: Clear tracking of when and how corrections are applied
+- **Validation Reasoning**: Better explanations for why content is flagged or approved
+
+## Performance Considerations
+
+- **Parallel Processing**: Profile, competencies, and projects are processed simultaneously
+- **Streaming**: Provides better perceived performance with real-time updates
+- **Edge Runtime**: Optimized for fast startup and low latency
+- **Timeout Handling**: Designed to work within Azure Static Web Apps limits
+
+## Best Practices
+
+1. **Use Streaming Endpoint**: Better user experience with progress updates
+2. **OpenAI Models**: Currently the only supported provider
+3. **File Size Limits**: Keep PDF files reasonable for processing speed
+4. **Validation Review**: Always check validation results before using customized content
+5. **Error Handling**: Implement proper error handling for network issues
+
+## Technical Implementation
+
+- Uses OpenAI's Responses API for direct PDF file analysis without needing text extraction
+- PDF parsing is handled natively by the AI model, improving text extraction quality
+- Multiple PDFs are processed simultaneously with proper context
+- Language detection ensures responses match the CV's original language
+
+### Supported Providers
+
+The API is designed to work with multiple LLM providers:
+
+- **OpenAI (Current)**: Using the responses API for direct PDF processing
+- **Anthropic Claude (Supported)**: Also has native PDF processing capabilities and can be easily swapped in
+
+To change providers, update the model configuration in the route handler.
+
+## Error Handling
+
+The API returns appropriate error messages and status codes in case of failures, including:
+- 400: Bad Request (missing parameters, unsupported provider)
+- 500: Server Error (API failures, processing errors)
+
+## Usage Example
+
+```javascript
+const formData = new FormData();
+formData.append('cvFile', cvFile);
+customerFiles.forEach(file => {
+  formData.append('customerFiles', file);
+});
+formData.append('modelProvider', 'openai');
+formData.append('modelName', 'gpt-4o');
+
+const response = await fetch('/api/cv-customization', {
+  method: 'POST',
+  body: formData,
+});
+
+const data = await response.json();
 ``` 

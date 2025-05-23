@@ -218,34 +218,35 @@ export async function POST(req: NextRequest) {
           shouldHaveCount: customerRequirements.should_have_requirements.length
         }));
         
-        // Steps 2-4: Run profile, competencies, and projects customization in parallel
-        logs.push(logDebug('Starting parallel customization of profile, competencies, and projects'));
+        // Step 2: Customize the CV profile using direct PDF processing  
+        logs.push(logDebug('Customizing CV profile'));
+        const customizedProfile = await runProfileCustomizationAgent({
+          model,
+          cvBuffer,
+          cvFileName: cvFile.name,
+          customerRequirements,
+          languageInstruction
+        });
         
-        const [customizedProfile, customizedCompetencies, customizedProjects] = await Promise.all([
-          // Profile customization
-          (async () => {
-            console.log('👤 Starting profile customization...');
-            logs.push(logDebug('Customizing CV profile with native PDF processing'));
-            const result = await runProfileCustomizationAgent({
-              model,
-              cvBuffer,
-              cvFileName: cvFile.name,
-              customerRequirements,
-              languageInstruction
-            });
-            
-            console.log('👤 Profile Customization Results:', {
-              originalLength: result.original_profile.length,
-              customizedLength: result.customized_profile.length,
-              reasoning: result.reasoning.substring(0, 200) + '...',
-              originalProfilePreview: result.original_profile.substring(0, 200) + '...',
-              customizedProfilePreview: result.customized_profile.substring(0, 200) + '...'
-            });
-            
-            logs.push(logDebug('Profile customization completed'));
-            return result;
-          })(),
-          
+        console.log('👤 Profile Customization Results:', {
+          originalLength: customizedProfile.original_profile.length,
+          customizedLength: customizedProfile.customized_profile.length,
+          lengthRatio: (customizedProfile.customized_profile.length / customizedProfile.original_profile.length).toFixed(2),
+          originalPreview: customizedProfile.original_profile.substring(0, 200) + '...',
+          customizedPreview: customizedProfile.customized_profile.substring(0, 200) + '...',
+          reasoning: customizedProfile.reasoning.substring(0, 300) + '...'
+        });
+        
+        logs.push(logDebug('Profile customization completed', {
+          originalLength: customizedProfile.original_profile.length,
+          customizedLength: customizedProfile.customized_profile.length,
+          lengthRatio: (customizedProfile.customized_profile.length / customizedProfile.original_profile.length).toFixed(2)
+        }));
+        
+        // Steps 3-4: Run competencies and projects customization in parallel
+        logs.push(logDebug('Starting parallel customization of competencies and projects'));
+        
+        const [customizedCompetencies, customizedProjects] = await Promise.all([
           // Competencies customization
           (async () => {
             console.log('🎯 Starting competencies customization...');
@@ -563,6 +564,20 @@ export async function POST(req: NextRequest) {
           }));
           
           finalResult.correction = correction;
+          
+          console.log('🔧 Final Correction Applied:', {
+            originalProfileLength: customizedProfile.customized_profile.length,
+            correctedProfileLength: correction.corrected_profile.profile.length,
+            profileChanged: customizedProfile.customized_profile !== correction.corrected_profile.profile,
+            profileChangesCount: correction.corrected_profile.changes_made.length,
+            competenciesChanged: customizedCompetencies.relevant_competencies.length !== correction.corrected_competencies.competencies.length,
+            projectsChanged: correction.corrected_projects.some((cp, i) => cp.corrected_description !== customizedProjects[i].customized_description)
+          });
+          
+          logs.push(logDebug('Corrections applied to final result', {
+            profileChanged: customizedProfile.customized_profile !== correction.corrected_profile.profile,
+            competenciesChanged: customizedCompetencies.relevant_competencies.length !== correction.corrected_competencies.competencies.length
+          }));
         } else {
           console.log('✅ Validation passed - no correction needed');
           logs.push(logDebug('Validation passed, no correction needed'));

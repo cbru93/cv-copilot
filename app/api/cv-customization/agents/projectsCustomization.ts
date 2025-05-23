@@ -56,33 +56,45 @@ export async function runProjectsCustomizationAgent({
     - Problem: What was the challenge or situation?
     - Accountability: What responsibilities did the consultant have?
     - Role: What was the consultant's specific role?
-    - Result: What outcomes were achieved?
+    - Result: What MEASURABLE outcomes were achieved?
+    
+    SPECIAL EMPHASIS ON MEASURABLE RESULTS:
+    When crafting the Result component, actively look for and emphasize quantifiable outcomes:
+    - Performance improvements (percentages, speed, efficiency gains)
+    - Cost savings or revenue impact (monetary amounts, budget reductions)
+    - Time improvements (delivery timelines, process speed-ups)
+    - Quality metrics (error reduction, compliance rates, customer satisfaction)
+    - Scale achievements (number of users, systems, team size managed)
+    - Business impact (market share, customer acquisition, retention rates)
+    - Technical metrics (uptime, processing capacity, system performance)
+    
+    If the original CV contains specific metrics, preserve and highlight them. If metrics are implied but not explicitly stated, you may reasonably infer measurable outcomes based on typical project results in that context, but stay grounded in what the original CV suggests.
     
     DO NOT write the description as a list or separate sections. Instead, craft a compelling narrative paragraph that naturally weaves together:
     - The context and challenges faced (Problem)
     - The consultant's specific responsibilities and ownership (Accountability) 
     - Their particular role and contributions (Role)
-    - The concrete outcomes and achievements (Result)
+    - The concrete, measurable outcomes and achievements (Result)
     
-    The description should read like a professional story that flows naturally from situation to action to results.
+    The description should read like a professional story that flows naturally from situation to action to quantifiable results.
     
-    Example style: "Led the digital transformation initiative for a legacy banking system facing critical performance issues and regulatory compliance gaps. Took full accountability for architecting and implementing a modern microservices solution, coordinating cross-functional teams of 12 developers and business analysts. Delivered a scalable platform that improved transaction processing speed by 65% and achieved full regulatory compliance, resulting in $2.3M annual cost savings."
+    Example style: "Led the digital transformation initiative for a legacy banking system facing critical performance issues and regulatory compliance gaps. Took full accountability for architecting and implementing a modern microservices solution, coordinating cross-functional teams of 12 developers and business analysts. Delivered a scalable platform that improved transaction processing speed by 65% and achieved full regulatory compliance, resulting in $2.3M annual cost savings and 99.9% system uptime."
     
     When customizing project descriptions:
     1. Highlight aspects that align with customer requirements
     2. Use action-oriented language and strong verbs
-    3. Quantify achievements when possible from the original CV
-    4. Focus on the consultant's personal contribution and impact
+    3. PRIORITIZE quantified achievements and measurable outcomes from the original CV
+    4. Focus on the consultant's personal contribution and measurable impact
     5. Ensure the customized description accurately reflects the original project
     6. Provide a relevance score (0-10) for each project based on how well it matches the requirements
     7. Write in third-person objective form (avoid "I" statements)
-    8. Keep descriptions between 75-150 words as a single, flowing paragraph
+    8. Keep descriptions between 75-150 words as a single, flowing paragraph that emphasizes measurable results
     
     For each project, provide:
     - Project name
     - Original description
-    - Customized description as natural narrative incorporating PARC principles
-    - PARC analysis breakdown (for validation purposes)
+    - Customized description as natural narrative incorporating PARC principles with measurable results
+    - PARC analysis breakdown (with special attention to quantified results)
     - Relevance score
     - Reasoning for customization
     
@@ -104,9 +116,11 @@ ${allRequirements}
 For each project:
 1. Extract the original description
 2. Create a customized version that highlights aspects relevant to the requirements
-3. Use the PARC method (Problem, Accountability, Role, Result)
+3. Use the PARC method (Problem, Accountability, Role, Result) with special emphasis on MEASURABLE results
 4. Rate the relevance of each project to the requirements (0-10)
 5. Provide reasoning for your customization
+
+CRITICAL: Emphasize quantifiable outcomes in the Result component wherever possible - look for metrics, percentages, cost savings, time improvements, performance gains, and other measurable impacts.
 
 Return the projects sorted by relevance score (highest first).`
       },

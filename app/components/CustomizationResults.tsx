@@ -8,10 +8,12 @@ import {
   Table,
   Tag,
   Divider,
-  Tabs
+  Tabs,
+  Textarea,
+  Button
 } from '@digdir/designsystemet-react';
 
-type TabValue = 'requirements' | 'profile' | 'competencies' | 'projects' | 'evaluation' | 'validation' | 'correction';
+type TabValue = 'requirements' | 'profile' | 'competencies' | 'projects' | 'evaluation' | 'validation' | 'correction' | 'final';
 
 interface CustomizationResultsProps {
   result: any;
@@ -22,13 +24,52 @@ export default function CustomizationResults({
   result, 
   isLoading 
 }: CustomizationResultsProps) {
+  const [copiedStates, setCopiedStates] = useState<{[key: string]: boolean}>({});
+
+  // Copy to clipboard functionality
+  const copyToClipboard = async (text: string, key: string) => {
+    try {
+      await navigator.clipboard.writeText(text);
+      setCopiedStates(prev => ({ ...prev, [key]: true }));
+      setTimeout(() => {
+        setCopiedStates(prev => ({ ...prev, [key]: false }));
+      }, 2000);
+    } catch (err) {
+      console.error('Failed to copy text: ', err);
+    }
+  };
+
+  // Get final texts (corrected if available, otherwise customized)
+  const getFinalProfile = () => {
+    if (result?.correction?.corrected_profile?.profile) {
+      return result.correction.corrected_profile.profile;
+    }
+    return result?.profile_customization?.customized_profile || '';
+  };
+
+  const getFinalCompetencies = () => {
+    if (result?.correction?.corrected_competencies?.competencies) {
+      return result.correction.corrected_competencies.competencies.join('\n• ');
+    }
+    return result?.key_competencies?.relevant_competencies?.join('\n• ') || '';
+  };
+
+  const getFinalProjects = () => {
+    if (result?.correction?.corrected_projects) {
+      return result.correction.corrected_projects.map((project: any) => 
+        `${project.project_name}\n${project.corrected_description}`
+      ).join('\n\n---\n\n');
+    }
+    return result?.customized_projects?.map((project: any) => 
+      `${project.project_name}\n${project.customized_description}`
+    ).join('\n\n---\n\n') || '';
+  };
+
   // Determine the default tab based on validation results
   const getDefaultTab = (): TabValue => {
-    if (result?.correction) {
-      return 'correction';
-    }
-    if (result?.validation && !result.validation.overall_validation.passes_validation) {
-      return 'validation';
+    // Default to final output tab if we have results
+    if (result && Object.keys(result).length > 0) {
+      return 'final';
     }
     return 'requirements';
   };
@@ -130,6 +171,12 @@ export default function CustomizationResults({
               </span>
             </Tabs.Tab>
           )}
+          <Tabs.Tab value="final">
+            📋 Final Output
+            <span className="ml-2 px-2 py-1 bg-blue-100 text-blue-800 text-xs rounded-md">
+              Ready to use
+            </span>
+          </Tabs.Tab>
         </Tabs.List>
         
         <Tabs.Panel value="requirements">
@@ -212,7 +259,15 @@ export default function CustomizationResults({
               
               {correction && (
                 <div className="mt-4 p-4 bg-green-50 rounded border border-green-200">
-                  <Heading level={4} data-size="xs" className="text-green-800">Final Corrected Profile</Heading>
+                  <div className="flex justify-between items-center mb-2">
+                    <Heading level={4} data-size="xs" className="text-green-800">Final Corrected Profile</Heading>
+                    <Button
+                      variant="secondary"
+                      onClick={() => copyToClipboard(correction.corrected_profile.profile, 'corrected-profile')}
+                    >
+                      {copiedStates['corrected-profile'] ? 'Copied!' : 'Copy'}
+                    </Button>
+                  </div>
                   <Paragraph className="mt-2 whitespace-pre-wrap text-green-700">{correction.corrected_profile.profile}</Paragraph>
                   
                   {correction.corrected_profile.changes_made.length > 0 && (
@@ -265,7 +320,15 @@ export default function CustomizationResults({
               
               {correction && (
                 <div className="mt-4 p-4 bg-green-50 rounded border border-green-200">
-                  <Heading level={4} data-size="xs" className="text-green-800">Final Corrected Competencies</Heading>
+                  <div className="flex justify-between items-center mb-2">
+                    <Heading level={4} data-size="xs" className="text-green-800">Final Corrected Competencies</Heading>
+                    <Button
+                      variant="secondary"
+                      onClick={() => copyToClipboard(correction.corrected_competencies.competencies.join('\n• '), 'corrected-competencies')}
+                    >
+                      {copiedStates['corrected-competencies'] ? 'Copied!' : 'Copy'}
+                    </Button>
+                  </div>
                   <ul className="mt-2 list-disc pl-6 text-green-700">
                     {correction.corrected_competencies.competencies.map((comp: string, index: number) => (
                       <li key={`corr-comp-${index}`} className="mb-1">{comp}</li>
@@ -467,7 +530,7 @@ export default function CustomizationResults({
                         validation.overall_validation.confidence_score >= 8 ? 'success' : 
                         validation.overall_validation.confidence_score >= 5 ? 'warning' : 'danger'
                       }>
-                        Confidence: {validation.overall_validation.confidence_score.toFixed(1)}/10
+                        Confidence: {(validation.overall_validation.confidence_score * 10).toFixed(1)}/10
                       </Tag>
                     </span>
                   </span>
@@ -748,6 +811,110 @@ export default function CustomizationResults({
             </Card>
           </Tabs.Panel>
         )}
+        
+        <Tabs.Panel value="final">
+          <Card>
+            <Card.Block>
+              <Heading level={3} data-size="sm">Final Customized Content</Heading>
+              <Paragraph className="mt-2">
+                Copy and use the finalized content below. This includes all corrections and optimizations.
+              </Paragraph>
+            </Card.Block>
+            
+            {/* Final Profile */}
+            <Card.Block>
+              <Heading level={4} data-size="xs">Profile Summary</Heading>
+              <div className="border rounded-md p-4 mt-4">
+                <div className="flex justify-between items-center mb-2">
+                  <Heading level={5} data-size="xs">Customized Profile</Heading>
+                  <Button
+                    variant="secondary"
+                    onClick={() => copyToClipboard(getFinalProfile(), 'profile')}
+                  >
+                    {copiedStates.profile ? 'Copied!' : 'Copy Profile'}
+                  </Button>
+                </div>
+                <Textarea
+                  value={getFinalProfile()}
+                  rows={8}
+                  readOnly
+                  className="w-full"
+                />
+              </div>
+            </Card.Block>
+            
+            {/* Final Competencies */}
+            <Card.Block>
+              <div className="flex justify-between items-center mb-2">
+                <Heading level={4} data-size="xs">Key Competencies</Heading>
+                <Button
+                  variant="secondary"
+                  onClick={() => copyToClipboard('• ' + getFinalCompetencies(), 'competencies')}
+                >
+                  {copiedStates.competencies ? 'Copied!' : 'Copy Competencies'}
+                </Button>
+              </div>
+              <Textarea
+                value={'• ' + getFinalCompetencies()}
+                rows={6}
+                readOnly
+                className="w-full mb-4"
+              />
+            </Card.Block>
+            
+            {/* Final Projects */}
+            <Card.Block>
+              <Heading level={4} data-size="xs">Project Descriptions</Heading>
+              <div className="space-y-4 mt-4">
+                {result?.customized_projects && result.customized_projects.map((project: any, index: number) => {
+                  const finalProjectDescription = result?.correction?.corrected_projects?.[index]?.corrected_description || project.customized_description;
+                  
+                  return (
+                    <div key={`final-project-${index}`} className="border rounded-md p-4">
+                      <div className="flex justify-between items-center mb-2">
+                        <Heading level={5} data-size="xs">{project.project_name}</Heading>
+                        <Button
+                          variant="secondary"
+                          onClick={() => copyToClipboard(finalProjectDescription, `project-${index}`)}
+                        >
+                          {copiedStates[`project-${index}`] ? 'Copied!' : 'Copy Project'}
+                        </Button>
+                      </div>
+                      <Textarea
+                        value={finalProjectDescription}
+                        rows={6}
+                        readOnly
+                        className="w-full"
+                      />
+                    </div>
+                  );
+                })}
+              </div>
+            </Card.Block>
+            
+            {/* Copy All Button */}
+            <Card.Block>
+              <div className="text-center">
+                <Button
+                  variant="primary"
+                  onClick={() => {
+                    const finalProfile = getFinalProfile();
+                    const finalCompetencies = getFinalCompetencies();
+                    const finalProjects = result?.customized_projects?.map((project: any, index: number) => {
+                      const finalProjectDescription = result?.correction?.corrected_projects?.[index]?.corrected_description || project.customized_description;
+                      return `${project.project_name}\n${finalProjectDescription}`;
+                    }).join('\n\n---\n\n') || '';
+                    
+                    const allContent = `PROFILE SUMMARY:\n${finalProfile}\n\nKEY COMPETENCIES:\n• ${finalCompetencies}\n\nPROJECT DESCRIPTIONS:\n${finalProjects}`;
+                    copyToClipboard(allContent, 'all');
+                  }}
+                >
+                  {copiedStates.all ? 'All Content Copied!' : 'Copy All Content'}
+                </Button>
+              </div>
+            </Card.Block>
+          </Card>
+        </Tabs.Panel>
       </Tabs>
     </div>
   );

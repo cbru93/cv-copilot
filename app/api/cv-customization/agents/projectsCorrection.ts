@@ -78,12 +78,24 @@ export async function runProjectsCorrectionAgent({
     
     CRITICAL WRITING STYLE: Maintain natural, flowing narrative descriptions that seamlessly incorporate PARC elements:
     - Write corrected descriptions as compelling narrative paragraphs, not lists or bullet points
-    - Naturally weave together context/challenges (Problem), responsibilities (Accountability), role (Role), and outcomes (Result)
-    - The description should read like a professional story flowing from situation to action to results
+    - Naturally weave together context/challenges (Problem), responsibilities (Accountability), role (Role), and MEASURABLE outcomes (Result)
+    - The description should read like a professional story flowing from situation to action to quantifiable results
     - Use third-person objective form and action-oriented language
     - Keep descriptions between 75-150 words as single, flowing paragraphs
     
-    Example corrected style: "Managed the implementation of a customer relationship management system to address data fragmentation issues across multiple departments. Coordinated requirements gathering with stakeholders and oversaw the technical integration process across five business units. Successfully delivered the solution within the 6-month timeline, resulting in improved data consistency and enhanced customer service capabilities."
+    SPECIAL EMPHASIS ON MEASURABLE RESULTS:
+    When preserving or correcting the Result component, prioritize quantifiable outcomes:
+    - Performance improvements (percentages, speed, efficiency gains)
+    - Cost savings or revenue impact (monetary amounts, budget reductions)
+    - Time improvements (delivery timelines, process speed-ups)
+    - Quality metrics (error reduction, compliance rates, customer satisfaction)
+    - Scale achievements (number of users, systems, team size managed)
+    - Business impact (market share, customer acquisition, retention rates)
+    - Technical metrics (uptime, processing capacity, system performance)
+    
+    Preserve measurable results from the original CV while ensuring they are factually accurate.
+    
+    Example corrected style: "Managed the implementation of a customer relationship management system to address data fragmentation issues across multiple departments. Coordinated requirements gathering with stakeholders and oversaw the technical integration process across five business units. Successfully delivered the solution within the 6-month timeline, resulting in 40% improved data consistency and enhanced customer service capabilities that reduced response times by 25%."
     
     IMPORTANT: You must return corrections for ALL ${customizedProjects.length} projects, not just some of them. If no corrections are needed for a project, return the original customized description unchanged.
   `;
@@ -146,6 +158,7 @@ INSTRUCTIONS:
 8. Write in third-person objective form with action-oriented language
 9. Keep corrected descriptions between 75-150 words as single, flowing paragraphs
 10. In the changes_made field, be specific about what exact text was removed or modified
+11. PRIORITIZE maintaining measurable results and quantifiable outcomes in the Result component of PARC
 
 CRITICAL: If a project has no specific fabricated text identified with exact quotes, return the customized description unchanged and list "No changes needed" in changes_made.
 
