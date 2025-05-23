@@ -37,6 +37,25 @@ export default function CVCustomizationProgress({
 }: CVCustomizationProgressProps) {
   const [progress, setProgress] = useState(0);
   const [currentMessage, setCurrentMessage] = useState('Initializing...');
+  
+  // Step weights based on complexity and expected duration (totaling 100%)
+  const stepWeights: Record<string, number> = {
+    'validation': 2,                    // Quick input validation
+    'file_processing': 2,               // Quick file reading
+    'language_detection': 3,            // Quick AI call
+    'requirements_analysis': 6,         // Moderate AI processing
+    'profile_customization': 12,        // Complex AI customization
+    'competencies_customization': 10,   // Complex AI customization
+    'projects_customization': 16,       // Heaviest - processes multiple projects
+    'evaluation': 6,                    // Moderate AI evaluation
+    'content_validation': 7,            // Moderate AI validation
+    'profile_correction': 11,           // Complex AI correction
+    'competencies_correction': 9,       // Complex AI correction
+    'projects_correction': 14,          // Heavy - processes multiple projects
+    'correction_check': 1,              // Quick check
+    'complete': 1                       // Finalization
+  };
+  
   const [steps, setSteps] = useState<ProgressStep[]>([
     { id: 'validation', name: 'Input Validation', status: 'pending' },
     { id: 'file_processing', name: 'File Processing', status: 'pending' },
@@ -54,6 +73,29 @@ export default function CVCustomizationProgress({
     { id: 'complete', name: 'Completion', status: 'pending' }
   ]);
 
+  // Calculate weighted progress based on completed steps
+  const calculateWeightedProgress = (currentSteps: ProgressStep[]) => {
+    let totalProgress = 0;
+    let currentStepProgress = 0;
+    
+    for (const step of currentSteps) {
+      const weight = stepWeights[step.id] || 0;
+      
+      if (step.status === 'completed') {
+        totalProgress += weight;
+      } else if (step.status === 'running') {
+        // Add partial progress for currently running step
+        currentStepProgress = weight * 0.5; // Assume 50% progress for running step
+        break;
+      } else {
+        // Once we hit a pending step, stop counting
+        break;
+      }
+    }
+    
+    return Math.min(Math.round(totalProgress + currentStepProgress), 100);
+  };
+
   useEffect(() => {
     if (!isVisible) return;
 
@@ -64,17 +106,23 @@ export default function CVCustomizationProgress({
   }, [isVisible]);
 
   const updateStep = (stepId: string, status: ProgressStep['status'], message?: string, data?: any) => {
-    setSteps(prevSteps => 
-      prevSteps.map(step => 
+    setSteps(prevSteps => {
+      const newSteps = prevSteps.map(step => 
         step.id === stepId 
           ? { ...step, status, message, data }
           : step
-      )
-    );
+      );
+      
+      // Calculate and update weighted progress
+      const weightedProgress = calculateWeightedProgress(newSteps);
+      setProgress(weightedProgress);
+      
+      return newSteps;
+    });
   };
 
   const handleProgressUpdate = (update: ProgressUpdate) => {
-    setProgress(update.progress);
+    // We no longer use the progress from the update, but calculate it based on step weights
     setCurrentMessage(update.message);
 
     // Update the specific step
@@ -89,6 +137,7 @@ export default function CVCustomizationProgress({
 
     // Handle completion
     if (update.step === 'complete' && update.data) {
+      setProgress(100); // Ensure we hit 100% on completion
       onComplete(update.data);
     }
   };
