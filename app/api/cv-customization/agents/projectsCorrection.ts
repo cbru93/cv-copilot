@@ -64,9 +64,18 @@ export async function runProjectsCorrectionAgent({
     CORRECTION PRINCIPLES:
     1. TARGETED FIXES: Only fix the specific fabricated or unsupported claims identified
     2. PRESERVE CUSTOMIZATIONS: Keep all valid improvements in presentation and relevance
-    3. MAINTAIN PARC STRUCTURE: Preserve the Problem-Accountability-Role-Result analysis where factual
+    3. MAINTAIN NATURAL NARRATIVE: Preserve the flowing, natural language style that incorporates PARC principles seamlessly
     4. FACTUAL GROUNDING: Ensure all details are supported by the original CV
     5. OPTIMIZE FOR REQUIREMENTS: Keep customizations that improve relevance to customer requirements
+    
+    CRITICAL WRITING STYLE: Maintain natural, flowing narrative descriptions that seamlessly incorporate PARC elements:
+    - Write corrected descriptions as compelling narrative paragraphs, not lists or bullet points
+    - Naturally weave together context/challenges (Problem), responsibilities (Accountability), role (Role), and outcomes (Result)
+    - The description should read like a professional story flowing from situation to action to results
+    - Use third-person objective form and action-oriented language
+    - Keep descriptions between 75-150 words as single, flowing paragraphs
+    
+    Example corrected style: "Managed the implementation of a customer relationship management system to address data fragmentation issues across multiple departments. Coordinated requirements gathering with stakeholders and oversaw the technical integration process across five business units. Successfully delivered the solution within the 6-month timeline, resulting in improved data consistency and enhanced customer service capabilities."
     
     IMPORTANT: You must return corrections for ALL ${customizedProjects.length} projects, not just some of them.
   `;
@@ -122,11 +131,14 @@ INSTRUCTIONS:
 1. Provide corrections for ALL ${customizedProjects.length} projects in the same order
 2. Fix only the specific fabricated or unsupported claims identified for each project
 3. Preserve all valid customizations that improve relevance to customer requirements
-4. Maintain the enhanced presentation style and PARC structure where factual
+4. Maintain the natural narrative style - write corrected descriptions as flowing paragraphs that seamlessly incorporate PARC elements
 5. Ensure each corrected description is grounded in the original project description
 6. Keep customizations that legitimately improve alignment with customer requirements
+7. Write in third-person objective form with action-oriented language
+8. Keep corrected descriptions between 75-150 words as single, flowing paragraphs
 
-Each corrected project should be an improved version of the customized project with validation issues fixed.`
+Each corrected project should be an improved version of the customized project with validation issues fixed while maintaining professional narrative flow.
+`
       },
       {
         type: 'file',

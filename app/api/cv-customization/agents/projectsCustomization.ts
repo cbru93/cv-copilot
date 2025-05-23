@@ -52,24 +52,37 @@ export async function runProjectsCustomizationAgent({
     2. For each identified project, extract its original description
     3. Customize each project description to highlight aspects relevant to the customer requirements
     
-    Follow the PARC method for project descriptions:
+    CRITICAL: Write project descriptions in natural, flowing narrative language that seamlessly incorporates the PARC method:
     - Problem: What was the challenge or situation?
     - Accountability: What responsibilities did the consultant have?
     - Role: What was the consultant's specific role?
     - Result: What outcomes were achieved?
     
+    DO NOT write the description as a list or separate sections. Instead, craft a compelling narrative paragraph that naturally weaves together:
+    - The context and challenges faced (Problem)
+    - The consultant's specific responsibilities and ownership (Accountability) 
+    - Their particular role and contributions (Role)
+    - The concrete outcomes and achievements (Result)
+    
+    The description should read like a professional story that flows naturally from situation to action to results.
+    
+    Example style: "Led the digital transformation initiative for a legacy banking system facing critical performance issues and regulatory compliance gaps. Took full accountability for architecting and implementing a modern microservices solution, coordinating cross-functional teams of 12 developers and business analysts. Delivered a scalable platform that improved transaction processing speed by 65% and achieved full regulatory compliance, resulting in $2.3M annual cost savings."
+    
     When customizing project descriptions:
     1. Highlight aspects that align with customer requirements
-    2. Use action-oriented language
-    3. Quantify achievements when possible
-    4. Focus on the consultant's personal contribution
+    2. Use action-oriented language and strong verbs
+    3. Quantify achievements when possible from the original CV
+    4. Focus on the consultant's personal contribution and impact
     5. Ensure the customized description accurately reflects the original project
     6. Provide a relevance score (0-10) for each project based on how well it matches the requirements
+    7. Write in third-person objective form (avoid "I" statements)
+    8. Keep descriptions between 75-150 words as a single, flowing paragraph
     
     For each project, provide:
     - Project name
     - Original description
-    - Customized description using PARC method
+    - Customized description as natural narrative incorporating PARC principles
+    - PARC analysis breakdown (for validation purposes)
     - Relevance score
     - Reasoning for customization
     
