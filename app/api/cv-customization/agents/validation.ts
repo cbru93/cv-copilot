@@ -79,11 +79,18 @@ export async function runValidationAgent({
     3. NO INVENTION: Don't allow new technologies, projects, or experiences not mentioned in the original CV
     4. VERIFY EVERYTHING: Cross-check every claim in the customized content against the original CV
     5. BE CONSERVATIVE: When in doubt, flag as potentially fabricated
+    6. QUOTE EXACTLY: When identifying fabricated or unsupported claims, provide the EXACT text from the customized content
+    
+    CRITICAL: When you identify fabricated_claims or unsupported_claims, you MUST:
+    - Quote the EXACT text from the customized content that is problematic
+    - Be specific about which words or phrases are not supported by the original CV
+    - Only flag content that you can definitively say is not in the original CV
+    - Do not flag reasonable interpretations or enhanced presentation of existing information
     
     For each customized section, you must:
     1. Compare it word-by-word with the original CV content
-    2. Identify any claims not supported by the original CV
-    3. Flag any exaggerations or embellishments
+    2. Identify any claims not supported by the original CV with EXACT QUOTES
+    3. Flag any exaggerations or embellishments with EXACT QUOTES
     4. Provide corrections that stay true to the original CV while still being relevant
     5. Rate your confidence in the validation (0-10 scale)
     
@@ -91,8 +98,9 @@ export async function runValidationAgent({
     - Always provide corrected_profile field: if no correction is needed, provide an empty string ""
     - Always provide corrected_description field for each project: if no correction is needed, provide an empty string ""
     - If corrections are needed, provide the improved version that stays factual to the original CV
+    - When listing fabricated_claims or unsupported_claims, use EXACT QUOTES from the customized content
     
-    Remember: It's better to be too conservative than to allow fabricated content.
+    Remember: It's better to be too conservative than to allow fabricated content, but be precise about what exactly is fabricated.
   `;
   
   // Format the customized projects for analysis

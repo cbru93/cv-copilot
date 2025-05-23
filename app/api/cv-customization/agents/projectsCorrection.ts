@@ -62,11 +62,19 @@ export async function runProjectsCorrectionAgent({
     ${languageInstruction}
     
     CORRECTION PRINCIPLES:
-    1. TARGETED FIXES: Only fix the specific fabricated or unsupported claims identified
+    1. TARGETED FIXES: Only fix the specific fabricated or unsupported claims identified with exact quotes
     2. PRESERVE CUSTOMIZATIONS: Keep all valid improvements in presentation and relevance
     3. MAINTAIN NATURAL NARRATIVE: Preserve the flowing, natural language style that incorporates PARC principles seamlessly
     4. FACTUAL GROUNDING: Ensure all details are supported by the original CV
     5. OPTIMIZE FOR REQUIREMENTS: Keep customizations that improve relevance to customer requirements
+    6. PRECISE CHANGES: Be specific about what text you change and why
+    
+    CRITICAL CORRECTION PROCESS:
+    - ONLY make changes if specific fabricated text is identified in the validation
+    - If validation provides exact quotes of fabricated claims, remove or modify only those specific quotes
+    - If no specific fabricated text is identified, DO NOT change the description
+    - When you make changes, be explicit about what text was removed/modified
+    - Preserve all other customizations that improve relevance to customer requirements
     
     CRITICAL WRITING STYLE: Maintain natural, flowing narrative descriptions that seamlessly incorporate PARC elements:
     - Write corrected descriptions as compelling narrative paragraphs, not lists or bullet points
@@ -77,7 +85,7 @@ export async function runProjectsCorrectionAgent({
     
     Example corrected style: "Managed the implementation of a customer relationship management system to address data fragmentation issues across multiple departments. Coordinated requirements gathering with stakeholders and oversaw the technical integration process across five business units. Successfully delivered the solution within the 6-month timeline, resulting in improved data consistency and enhanced customer service capabilities."
     
-    IMPORTANT: You must return corrections for ALL ${customizedProjects.length} projects, not just some of them.
+    IMPORTANT: You must return corrections for ALL ${customizedProjects.length} projects, not just some of them. If no corrections are needed for a project, return the original customized description unchanged.
   `;
   
   const requirementsContext = `
@@ -129,13 +137,17 @@ ${projectsText}
 
 INSTRUCTIONS:
 1. Provide corrections for ALL ${customizedProjects.length} projects in the same order
-2. Fix only the specific fabricated or unsupported claims identified for each project
-3. Preserve all valid customizations that improve relevance to customer requirements
-4. Maintain the natural narrative style - write corrected descriptions as flowing paragraphs that seamlessly incorporate PARC elements
-5. Ensure each corrected description is grounded in the original project description
-6. Keep customizations that legitimately improve alignment with customer requirements
-7. Write in third-person objective form with action-oriented language
-8. Keep corrected descriptions between 75-150 words as single, flowing paragraphs
+2. ONLY fix specific fabricated or unsupported claims that are identified with exact quotes in the validation
+3. If validation does not provide exact quotes of problematic text, DO NOT change the description
+4. Preserve all valid customizations that improve relevance to customer requirements
+5. Maintain the natural narrative style - write corrected descriptions as flowing paragraphs that seamlessly incorporate PARC elements
+6. Ensure each corrected description is grounded in the original project description
+7. Keep customizations that legitimately improve alignment with customer requirements
+8. Write in third-person objective form with action-oriented language
+9. Keep corrected descriptions between 75-150 words as single, flowing paragraphs
+10. In the changes_made field, be specific about what exact text was removed or modified
+
+CRITICAL: If a project has no specific fabricated text identified with exact quotes, return the customized description unchanged and list "No changes needed" in changes_made.
 
 Each corrected project should be an improved version of the customized project with validation issues fixed while maintaining professional narrative flow.
 `
@@ -165,4 +177,4 @@ Each corrected project should be an improved version of the customized project w
     console.error('Error in projects correction:', error);
     throw new Error('Failed to correct projects content');
   }
-} 
+}

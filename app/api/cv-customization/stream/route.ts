@@ -391,9 +391,42 @@ export async function POST(req: NextRequest) {
               projectsWithIssues: validation.projects_validation.filter(p => !p.is_factually_accurate).map(p => ({
                 name: p.project_name,
                 fabricatedDetails: p.fabricated_details,
-                unsupportedClaims: p.unsupported_claims
+                unsupportedClaims: p.unsupported_claims,
+                originalDescriptionLength: customizedProjects.find(cp => cp.project_name === p.project_name)?.original_description?.length || 0,
+                customizedDescriptionLength: customizedProjects.find(cp => cp.project_name === p.project_name)?.customized_description?.length || 0,
+                validationReasoning: p.reasoning
               }))
             });
+            
+            // Enhanced debugging for validation issues
+            if (!validation.overall_validation.passes_validation) {
+              console.log('🚨 VALIDATION FAILED - Detailed Analysis:');
+              
+              // Debug profile validation
+              if (!validation.profile_validation.is_factually_accurate) {
+                console.log('❌ Profile Validation Issues:', {
+                  fabricatedClaims: validation.profile_validation.fabricated_claims,
+                  unsupportedClaims: validation.profile_validation.unsupported_claims,
+                  reasoning: validation.profile_validation.reasoning,
+                  originalProfileLength: customizedProfile.original_profile.length,
+                  customizedProfileLength: customizedProfile.customized_profile.length
+                });
+              }
+              
+              // Debug projects validation
+              validation.projects_validation.forEach((projectValidation, index) => {
+                if (!projectValidation.is_factually_accurate) {
+                  const relatedProject = customizedProjects.find(p => p.project_name === projectValidation.project_name);
+                  console.log(`❌ Project Validation Issues - ${projectValidation.project_name}:`, {
+                    fabricatedDetails: projectValidation.fabricated_details,
+                    unsupportedClaims: projectValidation.unsupported_claims,
+                    reasoning: projectValidation.reasoning,
+                    originalDescription: relatedProject?.original_description?.substring(0, 200) + '...',
+                    customizedDescription: relatedProject?.customized_description?.substring(0, 200) + '...'
+                  });
+                }
+              });
+            }
             
             const validationStatus = validation.overall_validation.passes_validation ? 'passed' : 'failed';
             controller.enqueue(encoder.encode(createProgressUpdate(
@@ -454,7 +487,12 @@ export async function POST(req: NextRequest) {
                     correctedLength: result.corrected_profile.length,
                     changesMade: result.changes_made,
                     preservedCustomizations: result.preserved_customizations,
-                    confidenceScore: result.confidence_score
+                    confidenceScore: result.confidence_score,
+                    actuallyChanged: result.corrected_profile !== customizedProfile.customized_profile,
+                    textComparison: {
+                      first100CharsOriginal: customizedProfile.customized_profile.substring(0, 100),
+                      first100CharsCorrected: result.corrected_profile.substring(0, 100)
+                    }
                   });
                   
                   controller.enqueue(encoder.encode(createProgressUpdate(
@@ -541,11 +579,20 @@ export async function POST(req: NextRequest) {
                     totalProjectsCorrected: result.correction_summary.total_projects_corrected,
                     majorCorrections: result.correction_summary.major_corrections,
                     confidenceScore: result.correction_summary.confidence_score,
-                    correctedProjects: result.corrected_projects.map(p => ({
-                      name: p.project_name,
-                      changesMade: p.changes_made,
-                      preservedElements: p.preserved_elements
-                    }))
+                    projectDetails: result.corrected_projects.map((correctedProject, index) => {
+                      const originalProject = customizedProjects.find(p => p.project_name === correctedProject.project_name);
+                      return {
+                        name: correctedProject.project_name,
+                        changesMade: correctedProject.changes_made,
+                        actuallyChanged: originalProject ? correctedProject.corrected_description !== originalProject.customized_description : true,
+                        originalLength: originalProject?.customized_description?.length || 0,
+                        correctedLength: correctedProject.corrected_description.length,
+                        textComparison: {
+                          first100CharsOriginal: originalProject?.customized_description?.substring(0, 100) || '',
+                          first100CharsCorrected: correctedProject.corrected_description.substring(0, 100)
+                        }
+                      };
+                    })
                   });
                   
                   controller.enqueue(encoder.encode(createProgressUpdate(

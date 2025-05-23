@@ -464,10 +464,10 @@ export default function CustomizationResults({
                     </Tag>
                     <span className="ml-2">
                       <Tag data-color={
-                        (validation.overall_validation.confidence_score * 10) >= 8 ? 'success' : 
-                        (validation.overall_validation.confidence_score * 10) >= 5 ? 'warning' : 'danger'
+                        validation.overall_validation.confidence_score >= 8 ? 'success' : 
+                        validation.overall_validation.confidence_score >= 5 ? 'warning' : 'danger'
                       }>
-                        Confidence: {(validation.overall_validation.confidence_score * 10).toFixed(1)}/10
+                        Confidence: {validation.overall_validation.confidence_score.toFixed(1)}/10
                       </Tag>
                     </span>
                   </span>
