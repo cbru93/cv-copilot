@@ -21,6 +21,10 @@ import {
   runCompetenciesCustomizationAgent,
   runProjectsCustomizationAgent,
   runEvaluationAgent,
+  runValidationAgent,
+  runProfileCorrectionAgent,
+  runCompetenciesCorrectionAgent,
+  runProjectsCorrectionAgent,
   runLanguageDetectionAgent
 } from './agents';
 
@@ -201,6 +205,14 @@ export async function POST(req: NextRequest) {
           languageInstruction
         });
         
+        console.log('📋 Customer Requirements Analysis Results:', {
+          mustHaveCount: customerRequirements.must_have_requirements.length,
+          shouldHaveCount: customerRequirements.should_have_requirements.length,
+          mustHaveRequirements: customerRequirements.must_have_requirements.map(r => r.requirement),
+          shouldHaveRequirements: customerRequirements.should_have_requirements.map(r => r.requirement),
+          contextSummary: customerRequirements.context_summary
+        });
+        
         logs.push(logDebug('Customer requirements analysis completed', {
           mustHaveCount: customerRequirements.must_have_requirements.length,
           shouldHaveCount: customerRequirements.should_have_requirements.length
@@ -212,6 +224,7 @@ export async function POST(req: NextRequest) {
         const [customizedProfile, customizedCompetencies, customizedProjects] = await Promise.all([
           // Profile customization
           (async () => {
+            console.log('👤 Starting profile customization...');
             logs.push(logDebug('Customizing CV profile with native PDF processing'));
             const result = await runProfileCustomizationAgent({
               model,
@@ -220,12 +233,20 @@ export async function POST(req: NextRequest) {
               customerRequirements,
               languageInstruction
             });
+            
+            console.log('👤 Profile Customization Results:', {
+              originalLength: result.original_profile.length,
+              customizedLength: result.customized_profile.length,
+              reasoning: result.reasoning.substring(0, 200) + '...'
+            });
+            
             logs.push(logDebug('Profile customization completed'));
             return result;
           })(),
           
           // Competencies customization
           (async () => {
+            console.log('🎯 Starting competencies customization...');
             logs.push(logDebug('Customizing competencies with native PDF processing'));
             const result = await runCompetenciesCustomizationAgent({
               model,
@@ -234,6 +255,15 @@ export async function POST(req: NextRequest) {
               customerRequirements,
               languageInstruction
             });
+            
+            console.log('🎯 Competencies Customization Results:', {
+              originalCount: result.original_competencies.length,
+              relevantCount: result.relevant_competencies.length,
+              additionalSuggestionsCount: result.additional_suggested_competencies.length,
+              relevantCompetencies: result.relevant_competencies,
+              additionalSuggestions: result.additional_suggested_competencies
+            });
+            
             logs.push(logDebug('Competencies customization completed', {
               relevantCompetenciesCount: result.relevant_competencies.length,
               additionalSuggestionsCount: result.additional_suggested_competencies.length
@@ -243,6 +273,7 @@ export async function POST(req: NextRequest) {
           
           // Projects customization
           (async () => {
+            console.log('📁 Starting projects customization...');
             logs.push(logDebug('Customizing project descriptions with native PDF processing'));
             const result = await runProjectsCustomizationAgent({
               model,
@@ -251,6 +282,17 @@ export async function POST(req: NextRequest) {
               customerRequirements,
               languageInstruction
             });
+            
+            console.log('📁 Projects Customization Results:', {
+              projectsCount: result.length,
+              projects: result.map(p => ({
+                name: p.project_name,
+                relevanceScore: p.relevance_score,
+                originalDescLength: p.original_description.length,
+                customizedDescLength: p.customized_description.length
+              }))
+            });
+            
             logs.push(logDebug('Project customization completed', {
               projectsCount: result.length
             }));
@@ -270,20 +312,270 @@ export async function POST(req: NextRequest) {
           customerRequirements,
           languageInstruction
         });
+        
+        console.log('📊 Evaluation Results:', {
+          overallScore: evaluation.overall_score,
+          requirementCoverageCount: evaluation.requirement_coverage.length,
+          requirementCoverage: evaluation.requirement_coverage.map(r => ({
+            requirement: r.requirement,
+            covered: r.covered,
+            details: r.coverage_details.substring(0, 100) + '...'
+          })),
+          overallComments: evaluation.overall_comments.substring(0, 200) + '...',
+          improvementSuggestions: evaluation.improvement_suggestions
+        });
+        
         logs.push(logDebug('CV evaluation completed', {
           overallScore: evaluation.overall_score,
           requirementCoverageCount: evaluation.requirement_coverage.length
         }));
         
-        // Prepare the final result
-        const result = {
+        // Step 6: Validate the customized content against the original CV
+        logs.push(logDebug('Validating customized content for factual accuracy'));
+        const validation = await runValidationAgent({
+          model,
+          cvBuffer,
+          cvFileName: cvFile.name,
+          originalProfile: customizedProfile.original_profile,
+          customizedProfile: customizedProfile.customized_profile,
+          originalCompetencies: customizedCompetencies.original_competencies,
+          customizedCompetencies: customizedCompetencies.relevant_competencies,
+          customizedProjects,
+          languageInstruction
+        });
+        
+        console.log('🔍 Validation Results:', {
+          passesValidation: validation.overall_validation.passes_validation,
+          confidenceScore: validation.overall_validation.confidence_score,
+          profileValid: validation.profile_validation.is_factually_accurate,
+          profileFabricatedClaims: validation.profile_validation.fabricated_claims,
+          profileUnsupportedClaims: validation.profile_validation.unsupported_claims,
+          competenciesUnsupported: validation.competencies_validation.unsupported_competencies,
+          projectsWithIssues: validation.projects_validation.filter(p => !p.is_factually_accurate).map(p => ({
+            name: p.project_name,
+            fabricatedDetails: p.fabricated_details,
+            unsupportedClaims: p.unsupported_claims
+          }))
+        });
+        
+        logs.push(logDebug('Validation completed', {
+          passesValidation: validation.overall_validation.passes_validation,
+          confidenceScore: validation.overall_validation.confidence_score
+        }));
+        
+        // Step 7: Correct the CV if validation fails
+        let finalResult = {
           customer_requirements: customerRequirements,
           profile_customization: customizedProfile,
           key_competencies: customizedCompetencies,
           customized_projects: customizedProjects,
           evaluation: evaluation,
-          language_code: languageDetection.languageCode
+          validation: validation,
+          language_code: languageDetection.languageCode,
+          correction: null as any
         };
+        
+        if (!validation.overall_validation.passes_validation) {
+          console.log('⚠️ Validation failed - starting correction process...');
+          logs.push(logDebug('Validation failed, running specialized correction agents'));
+          
+          // Run correction agents in parallel for different sections
+          const [profileCorrection, competenciesCorrection, projectsCorrection] = await Promise.all([
+            // Profile correction (only if profile has issues)
+            !validation.profile_validation.is_factually_accurate ? 
+              (async () => {
+                console.log('👤🔧 Starting profile correction...');
+                const result = await runProfileCorrectionAgent({
+                  model,
+                  cvBuffer,
+                  cvFileName: cvFile.name,
+                  originalProfile: customizedProfile.original_profile,
+                  customizedProfile: customizedProfile.customized_profile,
+                  profileValidation: validation.profile_validation,
+                  customerRequirements,
+                  languageInstruction
+                });
+                
+                console.log('👤🔧 Profile Correction Results:', {
+                  originalLength: customizedProfile.customized_profile.length,
+                  correctedLength: result.corrected_profile.length,
+                  changesMade: result.changes_made,
+                  preservedCustomizations: result.preserved_customizations,
+                  confidenceScore: result.confidence_score
+                });
+                
+                return result;
+              })() : null,
+            
+            // Competencies correction (only if competencies have issues)
+            validation.competencies_validation.unsupported_competencies.length > 0 ?
+              (async () => {
+                console.log('🎯🔧 Starting competencies correction...');
+                const result = await runCompetenciesCorrectionAgent({
+                  model,
+                  cvBuffer,
+                  cvFileName: cvFile.name,
+                  originalCompetencies: customizedCompetencies.original_competencies,
+                  customizedCompetencies: customizedCompetencies.relevant_competencies,
+                  competenciesValidation: validation.competencies_validation,
+                  customerRequirements,
+                  languageInstruction
+                });
+                
+                console.log('🎯🔧 Competencies Correction Results:', {
+                  originalCount: customizedCompetencies.relevant_competencies.length,
+                  correctedCount: result.corrected_competencies.length,
+                  removedCount: result.removed_competencies.length,
+                  removedCompetencies: result.removed_competencies,
+                  preservedCompetencies: result.preserved_competencies,
+                  confidenceScore: result.confidence_score
+                });
+                
+                return result;
+              })() : null,
+            
+            // Projects correction (only if any project has issues)
+            validation.projects_validation.some((p: any) => !p.is_factually_accurate) ?
+              (async () => {
+                console.log('📁🔧 Starting projects correction...');
+                const result = await runProjectsCorrectionAgent({
+                  model,
+                  cvBuffer,
+                  cvFileName: cvFile.name,
+                  customizedProjects,
+                  projectsValidation: validation.projects_validation,
+                  customerRequirements,
+                  languageInstruction
+                });
+                
+                console.log('📁🔧 Projects Correction Results:', {
+                  totalProjectsCorrected: result.correction_summary.total_projects_corrected,
+                  majorCorrections: result.correction_summary.major_corrections,
+                  confidenceScore: result.correction_summary.confidence_score,
+                  correctedProjects: result.corrected_projects.map(p => ({
+                    name: p.project_name,
+                    changesMade: p.changes_made,
+                    preservedElements: p.preserved_elements
+                  }))
+                });
+                
+                return result;
+              })() : null
+          ]);
+          
+          console.log('🔧 Correction Summary:', {
+            profileCorrected: !!profileCorrection,
+            competenciesCorrected: !!competenciesCorrection,
+            projectsCorrected: !!projectsCorrection,
+            profileChanges: profileCorrection?.changes_made || [],
+            competenciesRemoved: competenciesCorrection?.removed_competencies || [],
+            projectsUpdated: projectsCorrection?.correction_summary.total_projects_corrected || 0
+          });
+          
+          logs.push(logDebug('Specialized correction agents completed', {
+            profileCorrected: !!profileCorrection,
+            competenciesCorrected: !!competenciesCorrection,
+            projectsCorrected: !!projectsCorrection
+          }));
+          
+          // Build correction summary
+          const totalIssuesFixed = 
+            (profileCorrection ? 1 : 0) + 
+            (competenciesCorrection ? competenciesCorrection.removed_competencies.length : 0) + 
+            (projectsCorrection ? projectsCorrection.correction_summary.total_projects_corrected : 0);
+          
+          const majorChanges = [
+            ...(profileCorrection ? profileCorrection.changes_made : []),
+            ...(competenciesCorrection ? [`Removed ${competenciesCorrection.removed_competencies.length} unsupported competencies`] : []),
+            ...(projectsCorrection ? projectsCorrection.correction_summary.major_corrections : [])
+          ];
+          
+          const qualityImprovements = [
+            ...(profileCorrection ? profileCorrection.preserved_customizations : []),
+            ...(competenciesCorrection ? competenciesCorrection.preserved_competencies.map(c => `Preserved relevant competency: ${c}`) : []),
+            ...(projectsCorrection ? projectsCorrection.corrected_projects.flatMap(p => p.preserved_elements.map(e => `Preserved in ${p.project_name}: ${e}`)) : [])
+          ];
+          
+          // Create combined correction result
+          const correction = {
+            corrected_profile: profileCorrection ? {
+              profile: profileCorrection.corrected_profile,
+              changes_made: profileCorrection.changes_made,
+              reasoning: profileCorrection.reasoning
+            } : {
+              profile: customizedProfile.customized_profile, // Keep original if no correction needed
+              changes_made: [],
+              reasoning: 'No profile correction needed'
+            },
+            corrected_competencies: competenciesCorrection ? {
+              competencies: competenciesCorrection.corrected_competencies,
+              removed_competencies: competenciesCorrection.removed_competencies,
+              reasoning: competenciesCorrection.reasoning
+            } : {
+              competencies: customizedCompetencies.relevant_competencies, // Keep original if no correction needed
+              removed_competencies: [],
+              reasoning: 'No competencies correction needed'
+            },
+            corrected_projects: projectsCorrection ? 
+              projectsCorrection.corrected_projects.map((correctedProject, index) => ({
+                project_name: correctedProject.project_name,
+                corrected_description: correctedProject.corrected_description,
+                parc_analysis: correctedProject.parc_analysis,
+                changes_made: correctedProject.changes_made,
+                reasoning: correctedProject.reasoning
+              })) :
+              customizedProjects.map(project => ({
+                project_name: project.project_name,
+                corrected_description: project.customized_description, // Keep original if no correction needed
+                parc_analysis: project.parc_analysis,
+                changes_made: [],
+                reasoning: 'No project correction needed'
+              })),
+            correction_summary: {
+              total_issues_fixed: totalIssuesFixed,
+              major_changes: majorChanges,
+              quality_improvements: qualityImprovements,
+              confidence_score: Math.min(
+                profileCorrection?.confidence_score || 10,
+                competenciesCorrection?.confidence_score || 10,
+                projectsCorrection?.correction_summary.confidence_score || 10
+              )
+            }
+          };
+          
+          // Update the final result with corrected content
+          finalResult.profile_customization = {
+            ...customizedProfile,
+            customized_profile: correction.corrected_profile.profile
+          };
+          
+          finalResult.key_competencies = {
+            ...customizedCompetencies,
+            relevant_competencies: correction.corrected_competencies.competencies
+          };
+          
+          finalResult.customized_projects = correction.corrected_projects.map((correctedProject, index) => ({
+            ...customizedProjects[index],
+            customized_description: correctedProject.corrected_description,
+            parc_analysis: correctedProject.parc_analysis
+          }));
+          
+          finalResult.correction = correction;
+        } else {
+          console.log('✅ Validation passed - no correction needed');
+          logs.push(logDebug('Validation passed, no correction needed'));
+        }
+        
+        // Prepare the final result
+        const result = finalResult;
+        
+        console.log('🎉 CV Customization Completed Successfully!', {
+          timeTaken: `${(Date.now() - startTime) / 1000}s`,
+          hasCorrection: !!result.correction,
+          finalOverallScore: result.evaluation.overall_score,
+          languageDetected: result.language_code,
+          totalStepsCompleted: result.correction ? 'All steps including correction' : 'All steps without correction needed'
+        });
         
         logs.push(logDebug('CV customization completed successfully', {
           timeTaken: `${(Date.now() - startTime) / 1000}s`
